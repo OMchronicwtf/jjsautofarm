@@ -3,7 +3,7 @@ return function(player, QuestEvent, quests)
     local autoQuest = false
     local connection
     local lastQuestCheck = 0
-    local checkInterval = 1
+    local checkInterval = 0.5
 
     local function GetQuestForLevel(level)
         local selected
