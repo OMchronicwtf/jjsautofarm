@@ -1,0 +1,59 @@
+return function(player, QuestEvent, quests)
+    local RunService = game:GetService("RunService")
+    local autoQuest = false
+    local connection
+    local lastQuestCheck = 0
+    local checkInterval = 1
+
+    local function GetQuestForLevel(level)
+        local selected
+        for _, q in ipairs(quests) do
+            if level >= q.MinLevel then
+                selected = q
+            end
+        end
+        return selected
+    end
+
+    local function StartQuest(quest)
+        if not quest then return end
+
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") 
+            and player.PlayerGui.Quest:FindFirstChild("Mission")
+        local inQuest = questFrame and questFrame.Visible
+
+        if inQuest then return end
+
+        QuestEvent:FireServer({
+            Quest = quest.QuestName,
+            Type = "RepeatQuest"
+        })
+    end
+
+    local function StartAutoQuest()
+        if connection then return end
+        connection = RunService.Heartbeat:Connect(function()
+            if not autoQuest then return end
+
+            local now = tick()
+            if now - lastQuestCheck < checkInterval then return end
+            lastQuestCheck = now
+
+            local level = player:WaitForChild("Data"):WaitForChild("Level").Value
+            local quest = GetQuestForLevel(level)
+            StartQuest(quest)
+        end)
+    end
+
+    local function StopAutoQuest()
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+    end
+
+    return {
+        Start = function() autoQuest = true; StartAutoQuest() end,
+        Stop = function() autoQuest = false; StopAutoQuest() end,
+    }
+end
