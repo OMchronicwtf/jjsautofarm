@@ -1,5 +1,5 @@
 -- =======================
--- Multi-Quest Farm Tab (Loadie)
+-- Multi-Quest Farm Tab
 -- =======================
 return function(Rayfield, Window, player, QuestEvent, quests)
     local FarmingTab = Window:CreateTab("Farming", 4483362458)
@@ -16,7 +16,7 @@ return function(Rayfield, Window, player, QuestEvent, quests)
         return questFrame and questFrame.Visible or false
     end
 
-    -- Helper: Get quest by display name
+    -- Helper: Get highest quest from a list of selected quests
     local function GetQuestByName(name)
         for _, q in ipairs(quests) do
             if q.DisplayName == name then
@@ -79,7 +79,7 @@ return function(Rayfield, Window, player, QuestEvent, quests)
                         local questData = GetQuestByName(questName)
                         if not questData then continue end
 
-                        -- Cancel any leftover quest
+                        -- Cancel any leftover quest once
                         if not IsInQuest() then
                             QuestEvent:FireServer({ Type = "RemoveQuest" })
                         end
@@ -90,7 +90,7 @@ return function(Rayfield, Window, player, QuestEvent, quests)
                         -- Start quest if not already in one
                         if not IsInQuest() then
                             QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
-                            task.wait(0.3)
+                            task.wait(0.3) -- wait a moment for server to start
                         end
 
                         -- Wait until quest is active
