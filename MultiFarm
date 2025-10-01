@@ -1,5 +1,5 @@
 -- =======================
--- MultiQuestFarm Module
+-- MultiQuestFarm Module (Safe Version)
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local multiQuestToggle = nil
@@ -16,9 +16,18 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local function TeleportToZone(level)
         for _, zone in ipairs(teleportZones) do
             if level >= zone.Min and level <= zone.Max then
-                player.Character.HumanoidRootPart.CFrame = zone.CFrame
+                local hrp = player.Character:WaitForChild("HumanoidRootPart")
+                hrp.CFrame = zone.CFrame
                 break
             end
+        end
+    end
+
+    -- Safely anchor/unanchor HRP
+    local function SetAnchored(state)
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Anchored = state
         end
     end
 
@@ -60,15 +69,16 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                             end
 
                             -- Wait until quest is active
-                            repeat
-                                task.wait(0.1)
-                            until IsInQuest() or not multiQuestEnabled
+                            repeat task.wait(0.1) until IsInQuest() or not multiQuestEnabled
 
                             -- Farm enemies
                             if IsInQuest() then
-                                local enemy = nil
+                                local hrp = player.Character:WaitForChild("HumanoidRootPart")
+                                SetAnchored(true) -- anchor while farming
+
                                 repeat
-                                    enemy = nil
+                                    if not multiQuestEnabled then break end
+                                    local enemy = nil
                                     for _, mob in pairs(workspace.Mobs:GetChildren()) do
                                         local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
                                         if levelNum == questData.MinLevel and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") then
@@ -77,8 +87,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                                         end
                                     end
 
-                                    if enemy then
-                                        local hrp = player.Character.HumanoidRootPart
+                                    if enemy and multiQuestEnabled then
                                         local enemyHRP = enemy.HumanoidRootPart
                                         hrp.CFrame = CFrame.new(enemyHRP.Position - enemyHRP.CFrame.LookVector * 5, enemyHRP.Position)
                                         game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
@@ -86,12 +95,16 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
                                     task.wait(0.1)
                                 until not IsInQuest() or not multiQuestEnabled
+
+                                SetAnchored(false) -- unanchor after farming
                             end
                         end
                     end
                 end)
             else
+                -- Cancel quest & unanchor to prevent fling
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
+                SetAnchored(false)
             end
         end
     })
