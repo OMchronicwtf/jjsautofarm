@@ -2,7 +2,5 @@ return {
     {Min = 1, Max = 50, CFrame = CFrame.new(-342.96, 11.42, -271.92)},
     {Min = 75, Max = 200, CFrame = CFrame.new(607.02, 55.88, -345.22)},
     {Min = 200, Max = 500, CFrame = CFrame.new(526.34, 11.83, 778.68)},
-    {Min = 500, Max = 850, CFrame = CFrame.new(1227.11, -1.43, -1344.46)},
+    {Min = 500, Max = 850, CFrame = CFrame.new(1193.59, -0.94, -1427.38)},
 }
-
-
