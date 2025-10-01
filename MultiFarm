@@ -2,7 +2,7 @@ return function(player, QuestEvent, quests, teleports, RunService, FarmingTab)
     local farming = false
     local selectedQuests = {}
 
-    -- Dropdown for quest selection
+    -- Dropdown for selecting quests
     local QuestDropdown = FarmingTab:CreateDropdown({
         Name = "Select Quests",
         Options = {},
@@ -14,7 +14,7 @@ return function(player, QuestEvent, quests, teleports, RunService, FarmingTab)
         end,
     })
 
-    -- Fill dropdown with quest names
+    -- Populate dropdown with quest names
     local questNames = {}
     for questName, _ in pairs(quests) do
         table.insert(questNames, questName)
@@ -36,17 +36,17 @@ return function(player, QuestEvent, quests, teleports, RunService, FarmingTab)
 
                             local questInfo = quests[questName]
                             if questInfo then
-                                -- Cancel existing quest
+                                -- Cancel any leftover quest
                                 QuestEvent:FireServer("QuitMission")
 
                                 -- Teleport to correct zone
                                 local teleportCF = teleports[questInfo.Zone]
                                 if teleportCF then
                                     player.Character:PivotTo(teleportCF)
-                                    task.wait(2) -- wait for zone to load
+                                    task.wait(1.5) -- wait for zone to load fully
                                 end
 
-                                -- Check quest status
+                                -- Check if already in a quest
                                 local questFrame = player.PlayerGui:FindFirstChild("Quest")
                                     and player.PlayerGui.Quest:FindFirstChild("Mission")
                                 local inQuest = questFrame and questFrame.Visible
@@ -67,28 +67,27 @@ return function(player, QuestEvent, quests, teleports, RunService, FarmingTab)
                                         break -- quest finished
                                     end
 
-                                    -- Find target enemies
                                     local target = questInfo.Target
                                     for _, enemy in ipairs(workspace.Living:GetChildren()) do
                                         if enemy.Name == target and enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                                            -- Teleport to enemy
+                                            -- Move above enemy
                                             player.Character:PivotTo(enemy.HumanoidRootPart.CFrame * CFrame.new(0, 3, 0))
                                         end
                                     end
 
-                                    task.wait(0.25)
+                                    task.wait(0.3)
                                 end
                             end
 
-                            -- Short delay before next quest (prevents fling issue)
+                            -- Short wait before looping to next quest (prevents fling issue)
                             if farming then
-                                task.wait(1)
+                                task.wait(0.75)
                             end
                         end
                     end
                 end)
             else
-                -- Cancel quest when turned off
+                -- Cancel quest when turning OFF
                 QuestEvent:FireServer("QuitMission")
             end
         end,
