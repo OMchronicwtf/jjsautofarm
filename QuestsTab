@@ -1,7 +1,7 @@
 -- AutoQuestTab Loadie
-return function(Rayfield, player, QuestEvent, RunService)
+return function(Window, player, QuestEvent, RunService)
     -- Create AutoQuest Tab
-    local AutoQuestTab = Rayfield:CreateWindow("AutoQuest", 4483362458):CreateTab("AutoQuest", 4483362458)
+    local AutoQuestTab = Window:CreateTab("AutoQuest", 4483362458)
     AutoQuestTab:CreateSection("Quest Controls")
 
     -- Load Quest Table
