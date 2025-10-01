@@ -1,51 +1,30 @@
-return function(player, QuestEvent, quests)
+-- Quest Status Checker Loadie
+return function(player)
     local RunService = game:GetService("RunService")
-    local autoQuest = false
+    local checkingEnabled = false
     local connection
-    local lastQuestCheck = 0
-    local checkInterval = 0.25
 
-    local function GetQuestForLevel(level)
-        local selected
-        for _, q in ipairs(quests) do
-            if level >= q.MinLevel then
-                selected = q
-            end
-        end
-        return selected
-    end
-
-    local function StartQuest(quest)
-        if not quest then return end
-
+    -- Check if player is in a quest
+    local function IsInQuest()
         local questFrame = player.PlayerGui:FindFirstChild("Quest") 
             and player.PlayerGui.Quest:FindFirstChild("Mission")
-        local inQuest = questFrame and questFrame.Visible
-
-        if inQuest then return end
-
-        QuestEvent:FireServer({
-            Quest = quest.QuestName,
-            Type = "RepeatQuest"
-        })
+        return questFrame and questFrame.Visible or false
     end
 
-    local function StartAutoQuest()
+    -- Start loop (optional, for continuous checking)
+    local function StartChecking()
         if connection then return end
         connection = RunService.Heartbeat:Connect(function()
-            if not autoQuest then return end
+            if not checkingEnabled then return end
 
-            local now = tick()
-            if now - lastQuestCheck < checkInterval then return end
-            lastQuestCheck = now
-
-            local level = player:WaitForChild("Data"):WaitForChild("Level").Value
-            local quest = GetQuestForLevel(level)
-            StartQuest(quest)
+            local inQuest = IsInQuest()
+            -- You can use this value or print it
+            print("In Quest:", inQuest)
         end)
     end
 
-    local function StopAutoQuest()
+    -- Stop checking
+    local function StopChecking()
         if connection then
             connection:Disconnect()
             connection = nil
@@ -53,7 +32,8 @@ return function(player, QuestEvent, quests)
     end
 
     return {
-        Start = function() autoQuest = true; StartAutoQuest() end,
-        Stop = function() autoQuest = false; StopAutoQuest() end,
+        IsInQuest = IsInQuest,   -- Returns true/false if player is in a quest
+        Start = function() checkingEnabled = true; StartChecking() end,
+        Stop = function() checkingEnabled = false; StopChecking() end
     }
 end
