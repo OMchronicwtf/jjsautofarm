@@ -8,8 +8,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local autoFarmEnabled = false
     local superKillEnabled = false
     local heartbeatConnection
-    local lockPosition
-    local lockConnection
+    local zoneLockConnection
 
     -- ======= Configurable sliders =======
     local behindDistance = 8
@@ -39,7 +38,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     })
 
-    -- ======= "Set Default" button =======
     FarmTab:CreateButton({
         Name = "Set Default",
         Callback = function()
@@ -56,94 +54,67 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         return questFrame and questFrame.Visible or false
     end
 
+    local function TeleportToZone(level)
+        for _, zone in ipairs(teleportZones) do
+            if level >= zone.Min and level <= zone.Max then
+                local hrp = player.Character:WaitForChild("HumanoidRootPart")
+                hrp.CFrame = zone.CFrame
+                return zone.CFrame
+            end
+        end
+    end
+
+    local function LockAtZone(zoneCFrame)
+        local hrp = player.Character:WaitForChild("HumanoidRootPart")
+        if zoneLockConnection then
+            zoneLockConnection:Disconnect()
+            zoneLockConnection = nil
+        end
+        zoneLockConnection = RunService.Heartbeat:Connect(function()
+            hrp.Velocity = Vector3.new(0,0,0)
+            hrp.RotVelocity = Vector3.new(0,0,0)
+            hrp.CFrame = zoneCFrame
+        end)
+    end
+
+    local function DetachZoneLock()
+        if zoneLockConnection then
+            zoneLockConnection:Disconnect()
+            zoneLockConnection = nil
+        end
+    end
+
+    local function AttachSuperKill(enemy)
+        if enemy and enemy:FindFirstChild("Humanoid") and superKillEnabled then
+            local humanoid = enemy.Humanoid
+            local initialHealth = humanoid.Health
+            humanoid.HealthChanged:Connect(function()
+                if humanoid.Health <= initialHealth * 0.9 then
+                    humanoid.Health = 0
+                end
+            end)
+        end
+    end
+
     local function GetSafeBehindPosition(enemyHRP)
         local rootPos = enemyHRP.Position
         local lookVec = enemyHRP.CFrame.LookVector
         return rootPos - lookVec * behindDistance + Vector3.new(0, aboveHeight, 0)
     end
 
-    local function LockAtZone(cframe)
-        local character = player.Character
-        if not character then return end
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-
-        -- Remove existing lock
-        if lockPosition then lockPosition:Destroy() lockPosition = nil end
-        if lockConnection then lockConnection:Disconnect() lockConnection = nil end
-
-        -- Create BodyPosition to pin player
-        lockPosition = Instance.new("BodyPosition")
-        lockPosition.MaxForce = Vector3.new(1e5,1e5,1e5)
-        lockPosition.Position = cframe.Position
-        lockPosition.P = 1e5
-        lockPosition.D = 1000
-        lockPosition.Parent = hrp
-
-        -- Constant update to prevent drift
-        lockConnection = RunService.Heartbeat:Connect(function()
-            if hrp then
-                lockPosition.Position = cframe.Position
-            else
-                if lockPosition then lockPosition:Destroy() lockPosition = nil end
-                if lockConnection then lockConnection:Disconnect() lockConnection = nil end
-            end
-        end)
-    end
-
-    local function AttachSuperKill(enemy)
-        if not enemy or not enemy:FindFirstChild("Humanoid") or not superKillEnabled then return end
-        local humanoid = enemy.Humanoid
-
-        -- Remove previous connections
-        if humanoid:FindFirstChild("SuperKillConnection") then
-            humanoid.SuperKillConnection:Disconnect()
-            humanoid.SuperKillConnection:Destroy()
-        end
-
-        local lastHealth = humanoid.Health
-        local conn = humanoid.HealthChanged:Connect(function(newHealth)
-            local damageTaken = lastHealth - newHealth
-            if damageTaken / humanoid.MaxHealth >= 0.1 then -- 10% damage dealt
-                humanoid.Health = 0
-                conn:Disconnect()
-            end
-            lastHealth = newHealth
-        end)
-        local tag = Instance.new("ObjectValue")
-        tag.Name = "SuperKillConnection"
-        tag.Value = humanoid
-        tag.Parent = humanoid
-    end
-
-    local function TeleportToZone(level)
-        local zoneCFrame
-        for _, zone in ipairs(teleportZones) do
-            if level >= zone.Min and level <= zone.Max then
-                zoneCFrame = zone.CFrame
-                break
-            end
-        end
-        if zoneCFrame then
-            LockAtZone(zoneCFrame)
-        end
-    end
-
     local function FarmQuest(questData)
         if not questData then return end
+        local hrp = player.Character:WaitForChild("HumanoidRootPart")
+        local zoneCFrame = TeleportToZone(questData.MinLevel)
 
-        -- Teleport & start quest
-        TeleportToZone(questData.MinLevel)
+        -- Wait for quest
         task.wait(0.3)
-
         if not IsInQuest() then
             QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
         end
-
         repeat task.wait(0.1) until IsInQuest()
 
-        local hrp = player.Character:WaitForChild("HumanoidRootPart")
-
+        -- Farm loop
         repeat
             local enemy = nil
             for _, mob in pairs(workspace.Mobs:GetChildren()) do
@@ -155,14 +126,14 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             end
 
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
+                -- Enemy found: detach zone lock
+                DetachZoneLock()
+
                 local enemyHRP = enemy.HumanoidRootPart
-
-                -- Remove teleport zone lock
-                if lockPosition then lockPosition:Destroy() lockPosition = nil end
-                if lockConnection then lockConnection:Disconnect() lockConnection = nil end
-
-                -- Smooth frame-based dynamic lock behind enemy
-                if heartbeatConnection then heartbeatConnection:Disconnect() end
+                -- Smooth lock behind enemy
+                if heartbeatConnection then
+                    heartbeatConnection:Disconnect()
+                end
                 heartbeatConnection = RunService.Heartbeat:Connect(function()
                     if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                         local targetPos = GetSafeBehindPosition(enemyHRP)
@@ -175,18 +146,24 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                     end
                 end)
 
-                -- First punch
+                -- Attack
                 game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
-
-                -- SuperKill
                 AttachSuperKill(enemy)
             else
-                -- No enemies, stay locked at zone
-                TeleportToZone(questData.MinLevel)
+                -- No enemy: lock at zone
+                if not zoneLockConnection then
+                    LockAtZone(zoneCFrame)
+                end
             end
+
+            task.wait(0.1)
         until not IsInQuest()
 
-        if heartbeatConnection then heartbeatConnection:Disconnect() heartbeatConnection = nil end
+        if heartbeatConnection then
+            heartbeatConnection:Disconnect()
+            heartbeatConnection = nil
+        end
+        DetachZoneLock()
     end
 
     -- =======================
@@ -203,17 +180,14 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 task.spawn(function()
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
                     task.wait(0.2)
-
                     while autoFarmEnabled do
                         local level = player:WaitForChild("Data").Level.Value
                         local bestQuest = nil
-
                         for _, q in ipairs(quests) do
                             if level >= q.MinLevel then
                                 bestQuest = q
                             end
                         end
-
                         if bestQuest then
                             FarmQuest(bestQuest)
                         else
@@ -224,8 +198,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             else
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
                 if heartbeatConnection then heartbeatConnection:Disconnect() heartbeatConnection = nil end
-                if lockPosition then lockPosition:Destroy() lockPosition = nil end
-                if lockConnection then lockConnection:Disconnect() lockConnection = nil end
+                DetachZoneLock()
             end
         end
     })
@@ -260,7 +233,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 task.spawn(function()
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
                     task.wait(0.1)
-
                     while multiQuestEnabled do
                         if #selectedQuests == 0 then
                             task.wait(0.5)
@@ -284,8 +256,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             else
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
                 if heartbeatConnection then heartbeatConnection:Disconnect() heartbeatConnection = nil end
-                if lockPosition then lockPosition:Destroy() lockPosition = nil end
-                if lockConnection then lockConnection:Disconnect() lockConnection = nil end
+                DetachZoneLock()
             end
         end
     })
