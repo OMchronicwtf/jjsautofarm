@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.6
+-- version: 1.0.7
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -10,8 +10,8 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local heartbeatConnection
 
     -- ======= Configurable sliders =======
-    local behindDistance = 5
-    local aboveHeight = 3
+    local behindDistance = 8
+    local aboveHeight = 1
 
     local distanceSlider = FarmTab:CreateSlider({
         Name = "Distance Behind Enemy",
@@ -64,10 +64,19 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     end
 
+    -- SuperKill now waits for the enemy to take damage first
     local function AttachSuperKill(enemy)
-        if enemy and enemy:FindFirstChild("Humanoid") and superKillEnabled then
-            enemy.Humanoid.Health = 0
-        end
+        if not enemy or not enemy:FindFirstChild("Humanoid") or not superKillEnabled then return end
+        local humanoid = enemy.Humanoid
+
+        -- Listen for first damage
+        local connection
+        connection = humanoid.HealthChanged:Connect(function(newHealth)
+            if newHealth < humanoid.MaxHealth then
+                humanoid.Health = 0
+                connection:Disconnect()
+            end
+        end)
     end
 
     local function GetSafeBehindPosition(enemyHRP)
