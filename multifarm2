@@ -1,0 +1,280 @@
+-- =======================
+-- Farming Module (Normal + MultiQuest + SuperKill)
+-- =======================
+return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
+    local selectedQuests = {}
+    local multiQuestEnabled = false
+    local autoFarmEnabled = false
+    local superKillEnabled = false
+    local currentHealthConnection = nil
+
+    -- Helpers
+    local function IsInQuest()
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
+        return questFrame and questFrame.Visible or false
+    end
+
+    local function TeleportToZone(level)
+        for _, zone in ipairs(teleportZones) do
+            if level >= zone.Min and level <= zone.Max then
+                local hrp = player.Character:WaitForChild("HumanoidRootPart")
+                hrp.CFrame = zone.CFrame
+                break
+            end
+        end
+    end
+
+    -- Improved AttachSuperKill: disconnect previous hook, then either enforce 0 health
+    -- by listening to HealthChanged or attempt to damage the humanoid directly.
+    local function AttachSuperKill(enemy)
+        -- clean up any existing connection
+        if currentHealthConnection then
+            currentHealthConnection:Disconnect()
+            currentHealthConnection = nil
+        end
+
+        if not enemy or not enemy.Parent then return end
+        local humanoid = enemy:FindFirstChild("Humanoid")
+        if not humanoid or not superKillEnabled then return end
+
+        -- Enforce health 0 whenever it changes (helps in races with server side set)
+        currentHealthConnection = humanoid.HealthChanged:Connect(function()
+            if humanoid and humanoid.Parent and humanoid.Health > 0 then
+                -- First try a direct Set (fast), then fallback to TakeDamage to trigger
+                -- server-side damage handlers if present.
+                pcall(function()
+                    humanoid.Health = 0
+                end)
+                -- Safe attempt to ensure damage is registered on the server if TakeDamage is respected
+                pcall(function()
+                    humanoid:TakeDamage(humanoid.MaxHealth + 1000)
+                end)
+            end
+        end)
+
+        -- Immediately attempt to reduce health once to speed up the effect
+        pcall(function()
+            humanoid.Health = 0
+        end)
+        pcall(function()
+            humanoid:TakeDamage(humanoid.MaxHealth + 1000)
+        end)
+    end
+
+    -- Smooth lock behind enemy: uses RunService to lerp each Heartbeat while target valid.
+    local function LockBehindTargetWhileAlive(hrp, enemyHRP, stopPredicate)
+        -- hrp: player's HumanoidRootPart
+        -- enemyHRP: target's HumanoidRootPart
+        -- stopPredicate: function() -> bool, return true to stop locking
+        local speed = 18 -- higher = snappier follow; lower = smoother (tweak if needed)
+        while hrp.Parent and enemyHRP.Parent and not stopPredicate() do
+            -- recompute behind position each frame (keeps lock while target moves/rotates)
+            local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
+            local goal = CFrame.new(behindPos, enemyHRP.Position)
+            local dt = RunService.Heartbeat:Wait()
+            -- Lerp current CFrame towards goal with a time-based alpha
+            local alpha = math.clamp(dt * speed, 0, 1)
+            hrp.CFrame = hrp.CFrame:Lerp(goal, alpha)
+        end
+    end
+
+    local function FarmQuest(questData)
+        if not questData then return end
+
+        -- Teleport & start quest
+        TeleportToZone(questData.MinLevel)
+        task.wait(0.3)
+
+        if not IsInQuest() then
+            QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
+        end
+
+        repeat task.wait(0.1) until IsInQuest()
+
+        -- Farm enemies
+        local hrp = player.Character:WaitForChild("HumanoidRootPart")
+        repeat
+            local enemy = nil
+            for _, mob in pairs(workspace.Mobs:GetChildren()) do
+                local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
+                if levelNum == questData.MinLevel and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") then
+                    enemy = mob
+                    break
+                end
+            end
+
+            if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") then
+                local enemyHRP = enemy.HumanoidRootPart
+                local enemyHum = enemy.Humanoid
+
+                -- Smooth lock behind the enemy while both are alive and we remain in quest
+                local stopped = false
+                local function stopPredicate()
+                    -- stop if enemy destroyed / dead or quest ended
+                    if not enemy or not enemy.Parent or not enemyHum or enemyHum.Health <= 0 then
+                        return true
+                    end
+                    if not IsInQuest() then
+                        return true
+                    end
+                    return false
+                end
+
+                -- Attach SuperKill hook (this will try to nuke health immediately and on change)
+                if superKillEnabled then
+                    AttachSuperKill(enemy)
+                else
+                    -- if superkill is disabled, ensure we don't keep a previous hook
+                    if currentHealthConnection then
+                        currentHealthConnection:Disconnect()
+                        currentHealthConnection = nil
+                    end
+                end
+
+                -- Lock behind target (this will return when stopPredicate() becomes true)
+                LockBehindTargetWhileAlive(hrp, enemyHRP, stopPredicate)
+
+                -- If we exited the lock and the enemy is still valid and alive, do a punch
+                if enemy and enemy.Parent and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                    -- First punch
+                    game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
+                        type = "M1",
+                        InAir = false,
+                        UpTilt = false
+                    })
+
+                    -- If SuperKill is enabled, immediately attempt to finish them
+                    if superKillEnabled and enemy:FindFirstChild("Humanoid") then
+                        -- Redundant attempt (AttachSuperKill should already be active)
+                        pcall(function()
+                            enemy.Humanoid.Health = 0
+                        end)
+                        pcall(function()
+                            enemy.Humanoid:TakeDamage(enemy.Humanoid.MaxHealth + 1000)
+                        end)
+                    end
+                end
+            end
+
+            task.wait(0.1)
+        until not IsInQuest()
+
+        -- clean up health hook after leaving quest
+        if currentHealthConnection then
+            currentHealthConnection:Disconnect()
+            currentHealthConnection = nil
+        end
+    end
+
+    -- =======================
+    -- Normal Autofarm Toggle
+    -- =======================
+    FarmTab:CreateToggle({
+        Name = "AutoFarm (Highest Quest)",
+        CurrentValue = false,
+        Flag = "AutoFarmToggle",
+        Callback = function(state)
+            autoFarmEnabled = state
+
+            if state then
+                task.spawn(function()
+                    QuestEvent:FireServer({ Type = "RemoveQuest" })
+                    task.wait(0.2)
+
+                    while autoFarmEnabled do
+                        local level = player:WaitForChild("Data").Level.Value
+                        local bestQuest = nil
+
+                        for _, q in ipairs(quests) do
+                            if level >= q.MinLevel then
+                                bestQuest = q
+                            end
+                        end
+
+                        if bestQuest then
+                            FarmQuest(bestQuest)
+                        else
+                            task.wait(1)
+                        end
+                    end
+                end)
+            else
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+            end
+        end
+    })
+
+    -- =======================
+    -- Multi-Quest Farm
+    -- =======================
+    local questOptions = {}
+    for _, q in ipairs(quests) do
+        table.insert(questOptions, q.DisplayName)
+    end
+
+    FarmTab:CreateDropdown({
+        Name = "Select Quests to Farm",
+        Options = questOptions,
+        CurrentOption = {},
+        MultipleOptions = true,
+        Flag = "MultiQuestDropdown",
+        Callback = function(options)
+            selectedQuests = options
+        end
+    })
+
+    FarmTab:CreateToggle({
+        Name = "Enable Multi-Quest Farm",
+        CurrentValue = false,
+        Flag = "MultiQuestToggle",
+        Callback = function(state)
+            multiQuestEnabled = state
+
+            if state then
+                task.spawn(function()
+                    QuestEvent:FireServer({ Type = "RemoveQuest" })
+                    task.wait(0.1)
+
+                    while multiQuestEnabled do
+                        if #selectedQuests == 0 then
+                            task.wait(0.5) -- prevent crash if nothing selected
+                        else
+                            for _, questName in ipairs(selectedQuests) do
+                                if not multiQuestEnabled then break end
+                                local questData = nil
+                                for _, q in ipairs(quests) do
+                                    if q.DisplayName == questName then
+                                        questData = q
+                                        break
+                                    end
+                                end
+                                if questData then
+                                    FarmQuest(questData)
+                                end
+                            end
+                        end
+                    end
+                end)
+            else
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+            end
+        end
+    })
+
+    -- =======================
+    -- SuperKill Toggle
+    -- =======================
+    FarmTab:CreateToggle({
+        Name = "SuperKill (Instakill Target)",
+        CurrentValue = false,
+        Flag = "SuperKillToggle",
+        Callback = function(state)
+            superKillEnabled = state
+            -- if toggled off, clear any lingering hook
+            if not state and currentHealthConnection then
+                currentHealthConnection:Disconnect()
+                currentHealthConnection = nil
+            end
+        end
+    })
+end
