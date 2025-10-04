@@ -1,5 +1,5 @@
 -- =======================
--- MultiQuestFarm Module (Locked Behind Enemy Version)
+-- MultiQuestFarm Module (Locked Behind Enemy + Safe Selection)
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local multiQuestToggle = nil
@@ -40,12 +40,38 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             multiQuestEnabled = state
 
             if state then
+                -- 🚨 Protection: stop if no quests selected
+                if #selectedQuests == 0 then
+                    multiQuestEnabled = false
+                    Rayfield:Notify({
+                        Title = "Multi-Quest Farm",
+                        Content = "No quests selected! Please select quests before enabling.",
+                        Duration = 5,
+                        Image = "alert-triangle"
+                    })
+                    multiQuestToggle:Set(false)
+                    return
+                end
+
                 task.spawn(function()
                     -- Cancel leftover quests once
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
                     task.wait(0.1)
 
                     while multiQuestEnabled do
+                        -- 🚨 Protection: stop if list becomes empty mid-run
+                        if #selectedQuests == 0 then
+                            Rayfield:Notify({
+                                Title = "Multi-Quest Farm",
+                                Content = "Quest list cleared. Stopping farm.",
+                                Duration = 5,
+                                Image = "alert-triangle"
+                            })
+                            multiQuestEnabled = false
+                            multiQuestToggle:Set(false)
+                            break
+                        end
+
                         for _, questName in ipairs(selectedQuests) do
                             if not multiQuestEnabled then break end
 
@@ -82,7 +108,10 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                                     local enemy = nil
                                     for _, mob in pairs(workspace.Mobs:GetChildren()) do
                                         local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
-                                        if levelNum == questData.MinLevel and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                                        if levelNum == questData.MinLevel 
+                                            and mob:FindFirstChild("HumanoidRootPart") 
+                                            and mob:FindFirstChild("Humanoid") 
+                                            and mob.Humanoid.Health > 0 then
                                             enemy = mob
                                             break
                                         end
