@@ -1,5 +1,5 @@
 -- =======================
--- MultiQuestFarm Module (Safe Version)
+-- MultiQuestFarm Module (No Fling, Attacks Work)
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local multiQuestToggle = nil
@@ -23,11 +23,12 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     end
 
-    -- Safely anchor/unanchor HRP
-    local function SetAnchored(state)
+    -- Reset HRP velocity instead of anchoring
+    local function ZeroVelocity()
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if hrp then
-            hrp.Anchored = state
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
         end
     end
 
@@ -74,10 +75,11 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                             -- Farm enemies
                             if IsInQuest() then
                                 local hrp = player.Character:WaitForChild("HumanoidRootPart")
-                                SetAnchored(true) -- anchor while farming
 
                                 repeat
                                     if not multiQuestEnabled then break end
+                                    ZeroVelocity()
+
                                     local enemy = nil
                                     for _, mob in pairs(workspace.Mobs:GetChildren()) do
                                         local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
@@ -87,7 +89,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                                         end
                                     end
 
-                                    if enemy and multiQuestEnabled then
+                                    if enemy then
                                         local enemyHRP = enemy.HumanoidRootPart
                                         hrp.CFrame = CFrame.new(enemyHRP.Position - enemyHRP.CFrame.LookVector * 5, enemyHRP.Position)
                                         game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
@@ -95,16 +97,14 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
                                     task.wait(0.1)
                                 until not IsInQuest() or not multiQuestEnabled
-
-                                SetAnchored(false) -- unanchor after farming
                             end
                         end
                     end
                 end)
             else
-                -- Cancel quest & unanchor to prevent fling
+                -- Cancel quest and stop fling by zeroing velocity
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
-                SetAnchored(false)
+                ZeroVelocity()
             end
         end
     })
