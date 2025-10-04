@@ -1,12 +1,13 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.0
+-- version: 1.0.1
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
     local multiQuestEnabled = false
     local autoFarmEnabled = false
     local superKillEnabled = false
+    local heightOffset = 3 -- adjust to match player height above enemy HRP
 
     -- Helpers
     local function IsInQuest()
@@ -51,12 +52,13 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
-                local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
-                -- Keep player at their current Y to avoid falling underground
-                behindPos = Vector3.new(behindPos.X, hrp.Position.Y, behindPos.Z)
-                hrp.CFrame = CFrame.new(behindPos, enemyHRP.Position)
 
-                -- First punch
+                -- Proper behind-enemy lock with height offset
+                local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
+                behindPos = Vector3.new(behindPos.X, enemyHRP.Position.Y + heightOffset, behindPos.Z)
+                hrp.CFrame = CFrame.new(behindPos, enemyHRP.Position + Vector3.new(0, heightOffset, 0))
+
+                -- Attack
                 game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
                     type = "M1",
                     InAir = false,
