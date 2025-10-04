@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.7
+-- version: 1.0.8
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -161,10 +161,39 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         Flag = "MultiQuestToggle",
         Callback = function(state)
             multiQuestEnabled = state
+
+            if state then
+                task.spawn(function()
+                    QuestEvent:FireServer({ Type = "RemoveQuest" })
+                    task.wait(0.1)
+
+                    while multiQuestEnabled do
+                        if #selectedQuests == 0 then
+                            task.wait(0.5)
+                        else
+                            for _, questName in ipairs(selectedQuests) do
+                                if not multiQuestEnabled then break end
+                                local questData = nil
+                                for _, q in ipairs(quests) do
+                                    if q.DisplayName == questName then
+                                        questData = q
+                                        break
+                                    end
+                                end
+                                if questData then
+                                    FarmQuest(questData)
+                                end
+                            end
+                        end
+                    end
+                end)
+            else
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+            end
         end
     })
 
-    -- ======= Sliders & "Set Default" Button =======
+    -- ======= Sliders & "Set Default" Button (below Multi-Quest) =======
     local distanceSlider = FarmTab:CreateSlider({
         Name = "Distance Behind Enemy",
         Range = {1, 15},
