@@ -1,16 +1,53 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.3
+-- version: 1.1.2
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
     local multiQuestEnabled = false
     local autoFarmEnabled = false
     local superKillEnabled = false
-    local heightOffset = 3 -- Player height above enemy HRP
     local heartbeatConnection
 
-    -- Helpers
+    -- ======= Configurable sliders =======
+    local behindDistance = 8
+    local aboveHeight = 1
+
+    local distanceSlider = FarmTab:CreateSlider({
+        Name = "Distance Behind Enemy",
+        Range = {1, 15},
+        Increment = 0.5,
+        Suffix = "Studs",
+        CurrentValue = behindDistance,
+        Flag = "DistanceSlider",
+        Callback = function(value)
+            behindDistance = value
+        end
+    })
+
+    local heightSlider = FarmTab:CreateSlider({
+        Name = "Height Above Enemy",
+        Range = {0, 10},
+        Increment = 0.5,
+        Suffix = "Studs",
+        CurrentValue = aboveHeight,
+        Flag = "HeightSlider",
+        Callback = function(value)
+            aboveHeight = value
+        end
+    })
+
+    FarmTab:CreateButton({
+        Name = "Set Default",
+        Callback = function()
+            behindDistance = 8
+            aboveHeight = 1
+            distanceSlider:Set(behindDistance)
+            heightSlider:Set(aboveHeight)
+        end
+    })
+
+    -- ======= Helpers =======
     local function IsInQuest()
         local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
         return questFrame and questFrame.Visible or false
@@ -26,23 +63,47 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     end
 
+    local function GetSafeBehindPosition(enemyHRP)
+        return enemyHRP.Position - enemyHRP.CFrame.LookVector * behindDistance + Vector3.new(0, aboveHeight, 0)
+    end
+
+    -- ======= SuperKill Tracking =======
+    local healthConnections = {} -- [enemy] = connection
+    local startingHealth = {} -- [enemy] = health snapshot
+
     local function AttachSuperKill(enemy)
-        if enemy and enemy:FindFirstChild("Humanoid") and superKillEnabled then
-            enemy.Humanoid.Health = 0
-        end
+        if not superKillEnabled then return end
+        if not enemy or not enemy.Parent or not enemy:FindFirstChild("Humanoid") then return end
+
+        local humanoid = enemy.Humanoid
+        if healthConnections[enemy] then return end -- Already tracking
+
+        startingHealth[enemy] = humanoid.Health
+        healthConnections[enemy] = humanoid.HealthChanged:Connect(function(newHealth)
+            local startHealth = startingHealth[enemy] or humanoid.MaxHealth
+            if startHealth <= 0 then startHealth = humanoid.MaxHealth end
+            local damageTaken = startHealth - newHealth
+            if damageTaken / startHealth >= 0.10 then
+                humanoid.Health = 0
+                -- Clean up
+                if healthConnections[enemy] then
+                    healthConnections[enemy]:Disconnect()
+                    healthConnections[enemy] = nil
+                    startingHealth[enemy] = nil
+                end
+            end
+        end)
     end
 
     local function FarmQuest(questData)
         if not questData then return end
 
-        -- Teleport & start quest
         TeleportToZone(questData.MinLevel)
         task.wait(0.3)
 
         if not IsInQuest() then
             QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
         end
-
         repeat task.wait(0.1) until IsInQuest()
 
         local hrp = player.Character:WaitForChild("HumanoidRootPart")
@@ -60,16 +121,12 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
 
-                -- Smooth frame-based lock (no waits)
-                if heartbeatConnection then
-                    heartbeatConnection:Disconnect()
-                end
+                -- Smooth lock behind enemy
+                if heartbeatConnection then heartbeatConnection:Disconnect() end
                 heartbeatConnection = RunService.Heartbeat:Connect(function()
                     if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
-                        local enemyHRP = enemy.HumanoidRootPart
-                        local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
-                        behindPos = Vector3.new(behindPos.X, enemyHRP.Position.Y + heightOffset, behindPos.Z)
-                        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(behindPos, enemyHRP.Position + Vector3.new(0, heightOffset, 0)), 0.35)
+                        local targetPos = GetSafeBehindPosition(enemyHRP)
+                        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, aboveHeight, 0)), 0.35)
                     else
                         if heartbeatConnection then
                             heartbeatConnection:Disconnect()
@@ -78,7 +135,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                     end
                 end)
 
-                -- Attack
+                -- First punch
                 game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
 
                 -- SuperKill
@@ -103,22 +160,16 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         Flag = "AutoFarmToggle",
         Callback = function(state)
             autoFarmEnabled = state
-
             if state then
                 task.spawn(function()
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
                     task.wait(0.2)
-
                     while autoFarmEnabled do
                         local level = player:WaitForChild("Data").Level.Value
-                        local bestQuest = nil
-
+                        local bestQuest
                         for _, q in ipairs(quests) do
-                            if level >= q.MinLevel then
-                                bestQuest = q
-                            end
+                            if level >= q.MinLevel then bestQuest = q end
                         end
-
                         if bestQuest then
                             FarmQuest(bestQuest)
                         else
@@ -128,10 +179,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 end)
             else
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
-                if heartbeatConnection then
-                    heartbeatConnection:Disconnect()
-                    heartbeatConnection = nil
-                end
+                if heartbeatConnection then heartbeatConnection:Disconnect(); heartbeatConnection = nil end
             end
         end
     })
@@ -140,9 +188,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     -- Multi-Quest Farm
     -- =======================
     local questOptions = {}
-    for _, q in ipairs(quests) do
-        table.insert(questOptions, q.DisplayName)
-    end
+    for _, q in ipairs(quests) do table.insert(questOptions, q.DisplayName) end
 
     FarmTab:CreateDropdown({
         Name = "Select Quests to Farm",
@@ -161,19 +207,17 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         Flag = "MultiQuestToggle",
         Callback = function(state)
             multiQuestEnabled = state
-
             if state then
                 task.spawn(function()
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
                     task.wait(0.1)
-
                     while multiQuestEnabled do
                         if #selectedQuests == 0 then
                             task.wait(0.5)
                         else
                             for _, questName in ipairs(selectedQuests) do
                                 if not multiQuestEnabled then break end
-                                local questData = nil
+                                local questData
                                 for _, q in ipairs(quests) do
                                     if q.DisplayName == questName then
                                         questData = q
@@ -189,10 +233,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 end)
             else
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
-                if heartbeatConnection then
-                    heartbeatConnection:Disconnect()
-                    heartbeatConnection = nil
-                end
+                if heartbeatConnection then heartbeatConnection:Disconnect(); heartbeatConnection = nil end
             end
         end
     })
