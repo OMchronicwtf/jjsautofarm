@@ -1,14 +1,12 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.7
+-- version: 1.0.8
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
     local multiQuestEnabled = false
     local autoFarmEnabled = false
     local superKillEnabled = false
-    local heartbeatConnection
-    local currentHealthConnection
 
     -- ======= Configurable sliders =======
     local behindDistance = 5
@@ -38,7 +36,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     })
 
-    -- ======= "Set Default" button =======
     FarmTab:CreateButton({
         Name = "Set Default",
         Callback = function()
@@ -69,32 +66,11 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         return enemyHRP.Position - (enemyHRP.CFrame.LookVector * behindDistance) + Vector3.new(0, aboveHeight, 0)
     end
 
-    -- ======= Improved SuperKill =======
-    local function AttachSuperKill(enemy)
-        if not enemy or not enemy:FindFirstChild("Humanoid") or not superKillEnabled then return end
-        local humanoid = enemy.Humanoid
-        local initialHealth = humanoid.Health
-
-        -- Disconnect previous connection
-        if currentHealthConnection then
-            currentHealthConnection:Disconnect()
-            currentHealthConnection = nil
-        end
-
-        currentHealthConnection = humanoid.HealthChanged:Connect(function(newHealth)
-            if initialHealth - newHealth >= initialHealth * 0.1 then
-                humanoid.Health = 0
-                if currentHealthConnection then
-                    currentHealthConnection:Disconnect()
-                    currentHealthConnection = nil
-                end
-            end
-        end)
-    end
-
     local function FarmQuest(questData)
         if not questData then return end
         local hrp = player.Character:WaitForChild("HumanoidRootPart")
+        local heartbeatConnection
+        local currentHealthConnection
 
         -- Teleport & start quest
         TeleportToZone(questData.MinLevel)
@@ -118,7 +94,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
 
-                -- Start smooth heartbeat lock if not already
+                -- Heartbeat lock
                 if not heartbeatConnection then
                     heartbeatConnection = RunService.Heartbeat:Connect(function()
                         if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
@@ -137,16 +113,36 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
 
                 -- SuperKill
-                AttachSuperKill(enemy)
+                if superKillEnabled and enemy:FindFirstChild("Humanoid") then
+                    local humanoid = enemy.Humanoid
+                    local initialHealth = humanoid.Health
+                    if currentHealthConnection then
+                        currentHealthConnection:Disconnect()
+                        currentHealthConnection = nil
+                    end
+                    currentHealthConnection = humanoid.HealthChanged:Connect(function(newHealth)
+                        if initialHealth - newHealth >= initialHealth * 0.1 then
+                            humanoid.Health = 0
+                            if currentHealthConnection then
+                                currentHealthConnection:Disconnect()
+                                currentHealthConnection = nil
+                            end
+                        end
+                    end)
+                end
             end
 
             task.wait(0.1)
         until not IsInQuest()
 
-        -- Cleanup heartbeat
+        -- Cleanup connections
         if heartbeatConnection then
             heartbeatConnection:Disconnect()
             heartbeatConnection = nil
+        end
+        if currentHealthConnection then
+            currentHealthConnection:Disconnect()
+            currentHealthConnection = nil
         end
     end
 
@@ -180,14 +176,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 end)
             else
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
-                if heartbeatConnection then
-                    heartbeatConnection:Disconnect()
-                    heartbeatConnection = nil
-                end
-                if currentHealthConnection then
-                    currentHealthConnection:Disconnect()
-                    currentHealthConnection = nil
-                end
             end
         end
     })
@@ -243,14 +231,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 end)
             else
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
-                if heartbeatConnection then
-                    heartbeatConnection:Disconnect()
-                    heartbeatConnection = nil
-                end
-                if currentHealthConnection then
-                    currentHealthConnection:Disconnect()
-                    currentHealthConnection = nil
-                end
             end
         end
     })
