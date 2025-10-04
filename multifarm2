@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.8
+-- version: 1.0.6
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -8,6 +8,45 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local autoFarmEnabled = false
     local superKillEnabled = false
     local heartbeatConnection
+
+    -- ======= Configurable sliders =======
+    local behindDistance = 5
+    local aboveHeight = 3
+
+    local distanceSlider = FarmTab:CreateSlider({
+        Name = "Distance Behind Enemy",
+        Range = {1, 15},
+        Increment = 0.5,
+        Suffix = "Studs",
+        CurrentValue = behindDistance,
+        Flag = "DistanceSlider",
+        Callback = function(value)
+            behindDistance = value
+        end
+    })
+
+    local heightSlider = FarmTab:CreateSlider({
+        Name = "Height Above Enemy",
+        Range = {0, 10},
+        Increment = 0.5,
+        Suffix = "Studs",
+        CurrentValue = aboveHeight,
+        Flag = "HeightSlider",
+        Callback = function(value)
+            aboveHeight = value
+        end
+    })
+
+    -- ======= "Set Default" button =======
+    FarmTab:CreateButton({
+        Name = "Set Default",
+        Callback = function()
+            behindDistance = 8
+            aboveHeight = 1
+            distanceSlider:Set(behindDistance)
+            heightSlider:Set(aboveHeight)
+        end
+    })
 
     -- ======= Helpers =======
     local function IsInQuest()
@@ -31,9 +70,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     end
 
-    local behindDistance = 5
-    local aboveHeight = 3
-
     local function GetSafeBehindPosition(enemyHRP)
         local rootPos = enemyHRP.Position
         local lookVec = enemyHRP.CFrame.LookVector
@@ -43,6 +79,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local function FarmQuest(questData)
         if not questData then return end
 
+        -- Teleport & start quest
         TeleportToZone(questData.MinLevel)
         task.wait(0.3)
 
@@ -51,6 +88,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
 
         repeat task.wait(0.1) until IsInQuest()
+
         local hrp = player.Character:WaitForChild("HumanoidRootPart")
 
         repeat
@@ -66,6 +104,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
 
+                -- Smooth frame-based dynamic lock
                 if heartbeatConnection then
                     heartbeatConnection:Disconnect()
                 end
@@ -81,7 +120,10 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                     end
                 end)
 
+                -- Attack
                 game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
+
+                -- SuperKill
                 AttachSuperKill(enemy)
             end
 
@@ -189,42 +231,11 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 end)
             else
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
+                if heartbeatConnection then
+                    heartbeatConnection:Disconnect()
+                    heartbeatConnection = nil
+                end
             end
-        end
-    })
-
-    -- ======= Sliders & "Set Default" Button (below Multi-Quest) =======
-    local distanceSlider = FarmTab:CreateSlider({
-        Name = "Distance Behind Enemy",
-        Range = {1, 15},
-        Increment = 0.5,
-        Suffix = "Studs",
-        CurrentValue = behindDistance,
-        Flag = "DistanceSlider",
-        Callback = function(value)
-            behindDistance = value
-        end
-    })
-
-    local heightSlider = FarmTab:CreateSlider({
-        Name = "Height Above Enemy",
-        Range = {0, 10},
-        Increment = 0.5,
-        Suffix = "Studs",
-        CurrentValue = aboveHeight,
-        Flag = "HeightSlider",
-        Callback = function(value)
-            aboveHeight = value
-        end
-    })
-
-    FarmTab:CreateButton({
-        Name = "Set Default",
-        Callback = function()
-            behindDistance = 8
-            aboveHeight = 1
-            distanceSlider:Set(behindDistance)
-            heightSlider:Set(aboveHeight)
         end
     })
 
