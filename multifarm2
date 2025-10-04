@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.5
+-- version: 1.0.6
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -12,9 +12,8 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     -- ======= Configurable sliders =======
     local behindDistance = 5
     local aboveHeight = 3
-    local rotationOffset = 0 -- in degrees
 
-    FarmTab:CreateSlider({
+    local distanceSlider = FarmTab:CreateSlider({
         Name = "Distance Behind Enemy",
         Range = {1, 15},
         Increment = 0.5,
@@ -26,7 +25,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     })
 
-    FarmTab:CreateSlider({
+    local heightSlider = FarmTab:CreateSlider({
         Name = "Height Above Enemy",
         Range = {0, 10},
         Increment = 0.5,
@@ -38,15 +37,14 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     })
 
-    FarmTab:CreateSlider({
-        Name = "Rotation Offset",
-        Range = {-180, 180},
-        Increment = 5,
-        Suffix = "°",
-        CurrentValue = rotationOffset,
-        Flag = "RotationSlider",
-        Callback = function(value)
-            rotationOffset = value
+    -- ======= "Set Default" button =======
+    FarmTab:CreateButton({
+        Name = "Set Default",
+        Callback = function()
+            behindDistance = 8
+            aboveHeight = 1
+            distanceSlider:Set(behindDistance)
+            heightSlider:Set(aboveHeight)
         end
     })
 
@@ -75,16 +73,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local function GetSafeBehindPosition(enemyHRP)
         local rootPos = enemyHRP.Position
         local lookVec = enemyHRP.CFrame.LookVector
-
-        -- Apply rotation offset around Y-axis
-        local angleRad = math.rad(rotationOffset)
-        local rotatedLookVec = Vector3.new(
-            lookVec.X * math.cos(angleRad) - lookVec.Z * math.sin(angleRad),
-            0,
-            lookVec.X * math.sin(angleRad) + lookVec.Z * math.cos(angleRad)
-        ).Unit
-
-        return rootPos - rotatedLookVec * behindDistance + Vector3.new(0, aboveHeight, 0)
+        return rootPos - lookVec * behindDistance + Vector3.new(0, aboveHeight, 0)
     end
 
     local function FarmQuest(questData)
