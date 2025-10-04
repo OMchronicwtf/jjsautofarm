@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.4
+-- version: 1.0.5
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -9,7 +9,48 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local superKillEnabled = false
     local heartbeatConnection
 
-    -- Helpers
+    -- ======= Configurable sliders =======
+    local behindDistance = 5
+    local aboveHeight = 3
+    local rotationOffset = 0 -- in degrees
+
+    FarmTab:CreateSlider({
+        Name = "Distance Behind Enemy",
+        Range = {1, 15},
+        Increment = 0.5,
+        Suffix = "Studs",
+        CurrentValue = behindDistance,
+        Flag = "DistanceSlider",
+        Callback = function(value)
+            behindDistance = value
+        end
+    })
+
+    FarmTab:CreateSlider({
+        Name = "Height Above Enemy",
+        Range = {0, 10},
+        Increment = 0.5,
+        Suffix = "Studs",
+        CurrentValue = aboveHeight,
+        Flag = "HeightSlider",
+        Callback = function(value)
+            aboveHeight = value
+        end
+    })
+
+    FarmTab:CreateSlider({
+        Name = "Rotation Offset",
+        Range = {-180, 180},
+        Increment = 5,
+        Suffix = "°",
+        CurrentValue = rotationOffset,
+        Flag = "RotationSlider",
+        Callback = function(value)
+            rotationOffset = value
+        end
+    })
+
+    -- ======= Helpers =======
     local function IsInQuest()
         local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
         return questFrame and questFrame.Visible or false
@@ -32,17 +73,18 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     end
 
     local function GetSafeBehindPosition(enemyHRP)
-        -- Calculate dynamic offset based on enemy size and velocity
         local rootPos = enemyHRP.Position
         local lookVec = enemyHRP.CFrame.LookVector
-        local enemySize = enemyHRP.Size and enemyHRP.Size.Magnitude or 5
-        local behindDist = math.clamp(enemySize, 5, 8) -- scale distance with size
-        local heightOffset = 3 + (enemyHRP.Position.Y - rootPos.Y) -- optional dynamic height
-        return Vector3.new(
-            rootPos.X - lookVec.X * behindDist,
-            rootPos.Y + heightOffset,
-            rootPos.Z - lookVec.Z * behindDist
-        )
+
+        -- Apply rotation offset around Y-axis
+        local angleRad = math.rad(rotationOffset)
+        local rotatedLookVec = Vector3.new(
+            lookVec.X * math.cos(angleRad) - lookVec.Z * math.sin(angleRad),
+            0,
+            lookVec.X * math.sin(angleRad) + lookVec.Z * math.cos(angleRad)
+        ).Unit
+
+        return rootPos - rotatedLookVec * behindDistance + Vector3.new(0, aboveHeight, 0)
     end
 
     local function FarmQuest(questData)
@@ -80,7 +122,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 heartbeatConnection = RunService.Heartbeat:Connect(function()
                     if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                         local targetPos = GetSafeBehindPosition(enemyHRP)
-                        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, 3, 0)), 0.35)
+                        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, aboveHeight, 0)), 0.35)
                     else
                         if heartbeatConnection then
                             heartbeatConnection:Disconnect()
