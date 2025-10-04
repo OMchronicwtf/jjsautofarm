@@ -121,7 +121,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                         currentHealthConnection = nil
                     end
                     currentHealthConnection = humanoid.HealthChanged:Connect(function(newHealth)
-                        if initialHealth - newHealth >= initialHealth * 0.1 then
+                        if initialHealth - newHealth >= initialHealth * 0.89 then
                             humanoid.Health = 0
                             if currentHealthConnection then
                                 currentHealthConnection:Disconnect()
