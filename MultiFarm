@@ -1,5 +1,5 @@
 -- =======================
--- MultiQuestFarm Module (No Fling, Attacks Work)
+-- MultiQuestFarm Module (Locked Behind Enemy Version)
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local multiQuestToggle = nil
@@ -23,12 +23,11 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     end
 
-    -- Reset HRP velocity instead of anchoring
     local function ZeroVelocity()
         local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if hrp then
+            hrp.Velocity = Vector3.zero
             hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.AssemblyAngularVelocity = Vector3.zero
         end
     end
 
@@ -83,16 +82,26 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                                     local enemy = nil
                                     for _, mob in pairs(workspace.Mobs:GetChildren()) do
                                         local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
-                                        if levelNum == questData.MinLevel and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") then
+                                        if levelNum == questData.MinLevel and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
                                             enemy = mob
                                             break
                                         end
                                     end
 
-                                    if enemy then
+                                    if enemy and enemy:FindFirstChild("HumanoidRootPart") then
                                         local enemyHRP = enemy.HumanoidRootPart
-                                        hrp.CFrame = CFrame.new(enemyHRP.Position - enemyHRP.CFrame.LookVector * 5, enemyHRP.Position)
-                                        game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
+                                        -- stay locked behind enemy
+                                        hrp.CFrame = CFrame.new(
+                                            enemyHRP.Position - enemyHRP.CFrame.LookVector * 5,
+                                            enemyHRP.Position
+                                        )
+
+                                        -- spam M1
+                                        game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
+                                            type = "M1",
+                                            InAir = false,
+                                            UpTilt = false
+                                        })
                                     end
 
                                     task.wait(0.1)
@@ -102,9 +111,8 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                     end
                 end)
             else
-                -- Cancel quest and stop fling by zeroing velocity
+                -- Cancel quest to reset & stop farming
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
-                ZeroVelocity()
             end
         end
     })
