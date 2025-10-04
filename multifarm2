@@ -1,13 +1,12 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.3
+-- version: 1.0.4
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
     local multiQuestEnabled = false
     local autoFarmEnabled = false
     local superKillEnabled = false
-    local heightOffset = 3 -- Player height above enemy HRP
     local heartbeatConnection
 
     -- Helpers
@@ -30,6 +29,20 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         if enemy and enemy:FindFirstChild("Humanoid") and superKillEnabled then
             enemy.Humanoid.Health = 0
         end
+    end
+
+    local function GetSafeBehindPosition(enemyHRP)
+        -- Calculate dynamic offset based on enemy size and velocity
+        local rootPos = enemyHRP.Position
+        local lookVec = enemyHRP.CFrame.LookVector
+        local enemySize = enemyHRP.Size and enemyHRP.Size.Magnitude or 5
+        local behindDist = math.clamp(enemySize, 5, 8) -- scale distance with size
+        local heightOffset = 3 + (enemyHRP.Position.Y - rootPos.Y) -- optional dynamic height
+        return Vector3.new(
+            rootPos.X - lookVec.X * behindDist,
+            rootPos.Y + heightOffset,
+            rootPos.Z - lookVec.Z * behindDist
+        )
     end
 
     local function FarmQuest(questData)
@@ -60,16 +73,14 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
 
-                -- Smooth frame-based lock (no waits)
+                -- Smooth frame-based dynamic lock
                 if heartbeatConnection then
                     heartbeatConnection:Disconnect()
                 end
                 heartbeatConnection = RunService.Heartbeat:Connect(function()
                     if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
-                        local enemyHRP = enemy.HumanoidRootPart
-                        local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
-                        behindPos = Vector3.new(behindPos.X, enemyHRP.Position.Y + heightOffset, behindPos.Z)
-                        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(behindPos, enemyHRP.Position + Vector3.new(0, heightOffset, 0)), 0.35)
+                        local targetPos = GetSafeBehindPosition(enemyHRP)
+                        hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, 3, 0)), 0.35)
                     else
                         if heartbeatConnection then
                             heartbeatConnection:Disconnect()
