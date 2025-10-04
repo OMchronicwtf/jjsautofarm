@@ -1,5 +1,5 @@
 -- =======================
--- Farming Module (Teleport Version)
+-- Farming Module (Normal + MultiQuest + SuperKill)
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -9,7 +9,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
     -- Helpers
     local function IsInQuest()
-        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui:FindFirstChild("Mission")
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
         return questFrame and questFrame.Visible or false
     end
 
@@ -23,11 +23,10 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     end
 
-    -- Farm a specific quest
     local function FarmQuest(questData)
         if not questData then return end
 
-        -- Teleport to zone & start quest
+        -- Teleport & start quest
         TeleportToZone(questData.MinLevel)
         task.wait(0.3)
 
@@ -37,9 +36,9 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
         repeat task.wait(0.1) until IsInQuest()
 
-        -- Farm enemies by teleporting behind them
+        -- Farm enemies
+        local hrp = player.Character:WaitForChild("HumanoidRootPart")
         repeat
-            if not multiQuestEnabled and not autoFarmEnabled then break end
             local enemy = nil
             for _, mob in pairs(workspace.Mobs:GetChildren()) do
                 local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
@@ -50,14 +49,13 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             end
 
             if enemy then
-                local hrp = player.Character:WaitForChild("HumanoidRootPart")
                 local enemyHRP = enemy.HumanoidRootPart
                 hrp.CFrame = CFrame.new(enemyHRP.Position - enemyHRP.CFrame.LookVector * 5, enemyHRP.Position)
                 game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
             end
 
             task.wait(0.1)
-        until not IsInQuest() or (not multiQuestEnabled and not autoFarmEnabled)
+        until not IsInQuest()
     end
 
     -- =======================
@@ -131,7 +129,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
                     while multiQuestEnabled do
                         if #selectedQuests == 0 then
-                            task.wait(0.5)
+                            task.wait(0.5) -- prevent crash if nothing selected
                         else
                             for _, questName in ipairs(selectedQuests) do
                                 if not multiQuestEnabled then break end
