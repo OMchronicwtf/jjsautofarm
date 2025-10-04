@@ -51,7 +51,14 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             if enemy then
                 local enemyHRP = enemy.HumanoidRootPart
                 hrp.CFrame = CFrame.new(enemyHRP.Position - enemyHRP.CFrame.LookVector * 5, enemyHRP.Position)
+
+                -- First punch
                 game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
+
+                -- SuperKill: Instantly reduce health to 0 if enabled
+                if superKillEnabled and enemy:FindFirstChild("Humanoid") then
+                    enemy.Humanoid.Health = 0
+                end
             end
 
             task.wait(0.1)
@@ -157,19 +164,11 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     -- SuperKill Toggle
     -- =======================
     FarmTab:CreateToggle({
-        Name = "SuperKill (M1 Spam)",
+        Name = "SuperKill (Instakill Target)",
         CurrentValue = false,
         Flag = "SuperKillToggle",
         Callback = function(state)
             superKillEnabled = state
-            if state then
-                task.spawn(function()
-                    while superKillEnabled do
-                        game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
-                        task.wait(0.05)
-                    end
-                end)
-            end
         end
     })
 end
