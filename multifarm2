@@ -83,7 +83,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             local initialHealth = humanoid.Health
             local connection
             connection = humanoid.HealthChanged:Connect(function(health)
-                if health <= initialHealth * 0.9 then
+                if health <= initialHealth * 0.85 then
                     humanoid.Health = 0
                     connection:Disconnect()
                 end
