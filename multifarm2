@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.1.5
+-- version: 1.1.6
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -55,6 +55,18 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         return questFrame and questFrame.Visible or false
     end
 
+    local function GetZoneForLevel(level)
+        local bestZone
+        for _, zone in ipairs(teleportZones) do
+            if level >= zone.Min and level <= zone.Max then
+                if not bestZone or zone.Min > bestZone.Min then
+                    bestZone = zone
+                end
+            end
+        end
+        return bestZone
+    end
+
     local function TeleportToZone(level)
         local zone = GetZoneForLevel(level)
         if zone then
@@ -66,7 +78,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
     local function AttachSuperKill(enemy)
         if enemy and enemy:FindFirstChild("Humanoid") and superKillEnabled then
-            -- Only trigger after 10% damage taken
+            -- Only trigger after enemy has taken ~15% damage
             local humanoid = enemy.Humanoid
             local initialHealth = humanoid.Health
             local connection
@@ -96,11 +108,17 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local function FarmQuest(questData)
         if not questData then return end
 
-        -- Teleport & start quest
-        local zoneCFrame = TeleportToZone(questData.MinLevel)
+        -- Find zone specifically for this quest
+        local zone = GetZoneForLevel(questData.MinLevel)
+        if not zone then return end
+
+        -- Teleport & lock at zone
+        local zoneCFrame = zone.CFrame
+        TeleportToZone(questData.MinLevel)
         LockAtPosition(zoneCFrame)
         task.wait(0.3)
 
+        -- Start quest
         if not IsInQuest() then
             QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
         end
@@ -122,13 +140,13 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
 
-                -- Stop zone-locking while moving behind enemy
+                -- Stop zone-locking while fighting
                 if zoneLockConnection then
                     zoneLockConnection:Disconnect()
                     zoneLockConnection = nil
                 end
 
-                -- Smooth frame-based dynamic lock behind enemy
+                -- Smooth lock behind enemy
                 if heartbeatConnection then
                     heartbeatConnection:Disconnect()
                 end
@@ -141,21 +159,21 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                             heartbeatConnection:Disconnect()
                             heartbeatConnection = nil
                         end
-                        -- Re-lock at teleport zone if enemy dies or disappears
-                        local zone = GetZoneForLevel(player:WaitForChild("Data").Level.Value)
-                        if zone then LockAtPosition(zone.CFrame) end
+                        -- Re-lock at quest zone
+                        LockAtPosition(zoneCFrame)
                     end
                 end)
 
                 -- Attack
-                game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
+                game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
+                    type = "M1", InAir = false, UpTilt = false
+                })
 
                 -- SuperKill
                 AttachSuperKill(enemy)
             else
-                -- If no enemies, keep player locked at zone
-                local zone = GetZoneForLevel(player:WaitForChild("Data").Level.Value)
-                if zone then LockAtPosition(zone.CFrame) end
+                -- If no enemies, stay locked at quest zone
+                LockAtPosition(zoneCFrame)
             end
 
             task.wait(0.1)
