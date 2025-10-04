@@ -1,14 +1,13 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.2
+-- version: 1.0.3
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
     local multiQuestEnabled = false
     local autoFarmEnabled = false
     local superKillEnabled = false
-    local heightOffset = 3 -- adjust to match player height above enemy HRP
-
+    local heightOffset = 3 -- Player height above enemy HRP
     local heartbeatConnection
 
     -- Helpers
@@ -61,7 +60,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
 
-                -- Smooth behind-enemy lock
+                -- Smooth frame-based lock (no waits)
                 if heartbeatConnection then
                     heartbeatConnection:Disconnect()
                 end
@@ -170,7 +169,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
                     while multiQuestEnabled do
                         if #selectedQuests == 0 then
-                            task.wait(0.5) -- prevent crash if nothing selected
+                            task.wait(0.5)
                         else
                             for _, questName in ipairs(selectedQuests) do
                                 if not multiQuestEnabled then break end
