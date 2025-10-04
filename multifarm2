@@ -10,8 +10,8 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local heartbeatConnection
 
     -- ======= Configurable sliders =======
-    local behindDistance = 8
-    local aboveHeight = 1
+    local behindDistance = 5
+    local aboveHeight = 3
 
     local distanceSlider = FarmTab:CreateSlider({
         Name = "Distance Behind Enemy",
@@ -64,15 +64,15 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     end
 
-    -- SuperKill now waits for the enemy to take damage first
+    -- SuperKill: only triggers after 10% damage
     local function AttachSuperKill(enemy)
         if not enemy or not enemy:FindFirstChild("Humanoid") or not superKillEnabled then return end
         local humanoid = enemy.Humanoid
+        local minDamage = humanoid.MaxHealth * 0.1 -- 10% threshold
 
-        -- Listen for first damage
         local connection
         connection = humanoid.HealthChanged:Connect(function(newHealth)
-            if newHealth < humanoid.MaxHealth then
+            if newHealth <= humanoid.MaxHealth - minDamage then
                 humanoid.Health = 0
                 connection:Disconnect()
             end
@@ -135,8 +135,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 -- SuperKill
                 AttachSuperKill(enemy)
             end
-
-            task.wait(0.1)
         until not IsInQuest()
 
         if heartbeatConnection then
