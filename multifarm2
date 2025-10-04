@@ -1,5 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
+-- version: 1.0.0
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -38,8 +39,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
         -- Farm enemies
         local hrp = player.Character:WaitForChild("HumanoidRootPart")
-        local RunService = game:GetService("RunService")
-
         repeat
             local enemy = nil
             for _, mob in pairs(workspace.Mobs:GetChildren()) do
@@ -52,35 +51,21 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
-                local lockSpeed = 10 -- Higher = faster snap, lower = smoother
-                local lockActive = true
+                local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
+                -- Keep player at their current Y to avoid falling underground
+                behindPos = Vector3.new(behindPos.X, hrp.Position.Y, behindPos.Z)
+                hrp.CFrame = CFrame.new(behindPos, enemyHRP.Position)
 
-                while lockActive and enemy and enemy.Parent and IsInQuest() do
-                    -- Calculate position behind enemy
-                    local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
-                    local goalCFrame = CFrame.new(behindPos, enemyHRP.Position)
+                -- First punch
+                game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
+                    type = "M1",
+                    InAir = false,
+                    UpTilt = false
+                })
 
-                    -- Smoothly move towards behind position
-                    local dt = RunService.Heartbeat:Wait()
-                    local alpha = math.clamp(dt * lockSpeed, 0, 1)
-                    hrp.CFrame = hrp.CFrame:Lerp(goalCFrame, alpha)
-
-                    -- Fire attack
-                    game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
-                        type = "M1",
-                        InAir = false,
-                        UpTilt = false
-                    })
-
-                    -- SuperKill
-                    if superKillEnabled and enemy:FindFirstChild("Humanoid") then
-                        enemy.Humanoid.Health = 0
-                    end
-
-                    -- Stop locking if enemy is dead or quest ends
-                    if not enemy or not enemy.Parent or (enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health <= 0) then
-                        lockActive = false
-                    end
+                -- SuperKill: Instantly reduce health to 0 if enabled
+                if superKillEnabled and enemy:FindFirstChild("Humanoid") then
+                    enemy.Humanoid.Health = 0
                 end
             end
 
