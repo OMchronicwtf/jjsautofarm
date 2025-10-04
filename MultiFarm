@@ -1,11 +1,10 @@
 -- =======================
--- MultiQuestFarm Module (Locked Behind Enemy + Safe Selection)
+-- Farming Module (Normal + MultiQuest)
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
-    local multiQuestToggle = nil
-    local multiQuestDropdown = nil
-    local multiQuestEnabled = false
     local selectedQuests = {}
+    local multiQuestEnabled = false
+    local autoFarmEnabled = false
 
     -- Helpers
     local function IsInQuest()
@@ -23,136 +22,88 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         end
     end
 
-    local function ZeroVelocity()
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.Velocity = Vector3.zero
-            hrp.AssemblyLinearVelocity = Vector3.zero
+    local function FarmQuest(questData)
+        if not questData then return end
+
+        -- Teleport & start quest
+        TeleportToZone(questData.MinLevel)
+        task.wait(0.3)
+
+        if not IsInQuest() then
+            QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
         end
+
+        repeat task.wait(0.1) until IsInQuest()
+
+        -- Farm enemies
+        local hrp = player.Character:WaitForChild("HumanoidRootPart")
+        repeat
+            local enemy = nil
+            for _, mob in pairs(workspace.Mobs:GetChildren()) do
+                local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
+                if levelNum == questData.MinLevel and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") then
+                    enemy = mob
+                    break
+                end
+            end
+
+            if enemy then
+                local enemyHRP = enemy.HumanoidRootPart
+                hrp.CFrame = CFrame.new(enemyHRP.Position - enemyHRP.CFrame.LookVector * 5, enemyHRP.Position)
+                game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type = "M1", InAir = false, UpTilt = false })
+            end
+
+            task.wait(0.1)
+        until not IsInQuest()
     end
 
-    -- Toggle
-    multiQuestToggle = FarmTab:CreateToggle({
-        Name = "Enable Multi-Quest Farm",
+    -- =======================
+    -- Normal Autofarm Toggle
+    -- =======================
+    FarmTab:CreateToggle({
+        Name = "AutoFarm (Highest Quest)",
         CurrentValue = false,
-        Flag = "MultiQuestToggle",
+        Flag = "AutoFarmToggle",
         Callback = function(state)
-            multiQuestEnabled = state
+            autoFarmEnabled = state
 
             if state then
-                -- 🚨 Protection: stop if no quests selected
-                if #selectedQuests == 0 then
-                    multiQuestEnabled = false
-                    Rayfield:Notify({
-                        Title = "Multi-Quest Farm",
-                        Content = "No quests selected! Please select quests before enabling.",
-                        Duration = 5,
-                        Image = "alert-triangle"
-                    })
-                    multiQuestToggle:Set(false)
-                    return
-                end
-
                 task.spawn(function()
-                    -- Cancel leftover quests once
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
-                    task.wait(0.1)
+                    task.wait(0.2)
 
-                    while multiQuestEnabled do
-                        -- 🚨 Protection: stop if list becomes empty mid-run
-                        if #selectedQuests == 0 then
-                            Rayfield:Notify({
-                                Title = "Multi-Quest Farm",
-                                Content = "Quest list cleared. Stopping farm.",
-                                Duration = 5,
-                                Image = "alert-triangle"
-                            })
-                            multiQuestEnabled = false
-                            multiQuestToggle:Set(false)
-                            break
+                    while autoFarmEnabled do
+                        local level = player:WaitForChild("Data").Level.Value
+                        local bestQuest = nil
+
+                        for _, q in ipairs(quests) do
+                            if level >= q.MinLevel then
+                                bestQuest = q
+                            end
                         end
 
-                        for _, questName in ipairs(selectedQuests) do
-                            if not multiQuestEnabled then break end
-
-                            -- Find quest data
-                            local questData = nil
-                            for _, q in ipairs(quests) do
-                                if q.DisplayName == questName then
-                                    questData = q
-                                    break
-                                end
-                            end
-                            if not questData then continue end
-
-                            -- Teleport to zone
-                            TeleportToZone(questData.MinLevel)
-                            task.wait(0.3)
-
-                            -- Start quest if not already
-                            if not IsInQuest() then
-                                QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
-                            end
-
-                            -- Wait until quest is active
-                            repeat task.wait(0.1) until IsInQuest() or not multiQuestEnabled
-
-                            -- Farm enemies
-                            if IsInQuest() then
-                                local hrp = player.Character:WaitForChild("HumanoidRootPart")
-
-                                repeat
-                                    if not multiQuestEnabled then break end
-                                    ZeroVelocity()
-
-                                    local enemy = nil
-                                    for _, mob in pairs(workspace.Mobs:GetChildren()) do
-                                        local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
-                                        if levelNum == questData.MinLevel 
-                                            and mob:FindFirstChild("HumanoidRootPart") 
-                                            and mob:FindFirstChild("Humanoid") 
-                                            and mob.Humanoid.Health > 0 then
-                                            enemy = mob
-                                            break
-                                        end
-                                    end
-
-                                    if enemy and enemy:FindFirstChild("HumanoidRootPart") then
-                                        local enemyHRP = enemy.HumanoidRootPart
-                                        -- stay locked behind enemy
-                                        hrp.CFrame = CFrame.new(
-                                            enemyHRP.Position - enemyHRP.CFrame.LookVector * 5,
-                                            enemyHRP.Position
-                                        )
-
-                                        -- spam M1
-                                        game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
-                                            type = "M1",
-                                            InAir = false,
-                                            UpTilt = false
-                                        })
-                                    end
-
-                                    task.wait(0.1)
-                                until not IsInQuest() or not multiQuestEnabled
-                            end
+                        if bestQuest then
+                            FarmQuest(bestQuest)
+                        else
+                            task.wait(1)
                         end
                     end
                 end)
             else
-                -- Cancel quest to reset & stop farming
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
             end
         end
     })
 
-    -- Dropdown
+    -- =======================
+    -- Multi-Quest Farm
+    -- =======================
     local questOptions = {}
     for _, q in ipairs(quests) do
         table.insert(questOptions, q.DisplayName)
     end
 
-    multiQuestDropdown = FarmTab:CreateDropdown({
+    FarmTab:CreateDropdown({
         Name = "Select Quests to Farm",
         Options = questOptions,
         CurrentOption = {},
@@ -160,6 +111,44 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         Flag = "MultiQuestDropdown",
         Callback = function(options)
             selectedQuests = options
+        end
+    })
+
+    FarmTab:CreateToggle({
+        Name = "Enable Multi-Quest Farm",
+        CurrentValue = false,
+        Flag = "MultiQuestToggle",
+        Callback = function(state)
+            multiQuestEnabled = state
+
+            if state then
+                task.spawn(function()
+                    QuestEvent:FireServer({ Type = "RemoveQuest" })
+                    task.wait(0.1)
+
+                    while multiQuestEnabled do
+                        if #selectedQuests == 0 then
+                            task.wait(0.5) -- prevent crash if nothing selected
+                        else
+                            for _, questName in ipairs(selectedQuests) do
+                                if not multiQuestEnabled then break end
+                                local questData = nil
+                                for _, q in ipairs(quests) do
+                                    if q.DisplayName == questName then
+                                        questData = q
+                                        break
+                                    end
+                                end
+                                if questData then
+                                    FarmQuest(questData)
+                                end
+                            end
+                        end
+                    end
+                end)
+            else
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+            end
         end
     })
 end
