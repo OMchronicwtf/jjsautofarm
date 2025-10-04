@@ -80,7 +80,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
         local startingHealth = humanoid.Health
         healthConnections[enemy] = humanoid.HealthChanged:Connect(function(currentHealth)
-            if currentHealth <= startingHealth * 0.9 then -- at least 10% damage
+            if currentHealth <= startingHealth * 0.11 then -- at least 10% damage
                 humanoid.Health = 0
                 healthConnections[enemy]:Disconnect()
                 healthConnections[enemy] = nil
