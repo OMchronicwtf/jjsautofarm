@@ -6,7 +6,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local multiQuestEnabled = false
     local autoFarmEnabled = false
     local superKillEnabled = false
-    local currentHealthConnection = nil
 
     -- Helpers
     local function IsInQuest()
@@ -21,60 +20,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 hrp.CFrame = zone.CFrame
                 break
             end
-        end
-    end
-
-    -- Improved AttachSuperKill: disconnect previous hook, then either enforce 0 health
-    -- by listening to HealthChanged or attempt to damage the humanoid directly.
-    local function AttachSuperKill(enemy)
-        -- clean up any existing connection
-        if currentHealthConnection then
-            currentHealthConnection:Disconnect()
-            currentHealthConnection = nil
-        end
-
-        if not enemy or not enemy.Parent then return end
-        local humanoid = enemy:FindFirstChild("Humanoid")
-        if not humanoid or not superKillEnabled then return end
-
-        -- Enforce health 0 whenever it changes (helps in races with server side set)
-        currentHealthConnection = humanoid.HealthChanged:Connect(function()
-            if humanoid and humanoid.Parent and humanoid.Health > 0 then
-                -- First try a direct Set (fast), then fallback to TakeDamage to trigger
-                -- server-side damage handlers if present.
-                pcall(function()
-                    humanoid.Health = 0
-                end)
-                -- Safe attempt to ensure damage is registered on the server if TakeDamage is respected
-                pcall(function()
-                    humanoid:TakeDamage(humanoid.MaxHealth + 1000)
-                end)
-            end
-        end)
-
-        -- Immediately attempt to reduce health once to speed up the effect
-        pcall(function()
-            humanoid.Health = 0
-        end)
-        pcall(function()
-            humanoid:TakeDamage(humanoid.MaxHealth + 1000)
-        end)
-    end
-
-    -- Smooth lock behind enemy: uses RunService to lerp each Heartbeat while target valid.
-    local function LockBehindTargetWhileAlive(hrp, enemyHRP, stopPredicate)
-        -- hrp: player's HumanoidRootPart
-        -- enemyHRP: target's HumanoidRootPart
-        -- stopPredicate: function() -> bool, return true to stop locking
-        local speed = 18 -- higher = snappier follow; lower = smoother (tweak if needed)
-        while hrp.Parent and enemyHRP.Parent and not stopPredicate() do
-            -- recompute behind position each frame (keeps lock while target moves/rotates)
-            local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
-            local goal = CFrame.new(behindPos, enemyHRP.Position)
-            local dt = RunService.Heartbeat:Wait()
-            -- Lerp current CFrame towards goal with a time-based alpha
-            local alpha = math.clamp(dt * speed, 0, 1)
-            hrp.CFrame = hrp.CFrame:Lerp(goal, alpha)
         end
     end
 
@@ -93,6 +38,8 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
 
         -- Farm enemies
         local hrp = player.Character:WaitForChild("HumanoidRootPart")
+        local RunService = game:GetService("RunService")
+
         repeat
             local enemy = nil
             for _, mob in pairs(workspace.Mobs:GetChildren()) do
@@ -103,67 +50,42 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
                 end
             end
 
-            if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") then
+            if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
-                local enemyHum = enemy.Humanoid
+                local lockSpeed = 10 -- Higher = faster snap, lower = smoother
+                local lockActive = true
 
-                -- Smooth lock behind the enemy while both are alive and we remain in quest
-                local stopped = false
-                local function stopPredicate()
-                    -- stop if enemy destroyed / dead or quest ended
-                    if not enemy or not enemy.Parent or not enemyHum or enemyHum.Health <= 0 then
-                        return true
-                    end
-                    if not IsInQuest() then
-                        return true
-                    end
-                    return false
-                end
+                while lockActive and enemy and enemy.Parent and IsInQuest() do
+                    -- Calculate position behind enemy
+                    local behindPos = enemyHRP.Position - (enemyHRP.CFrame.LookVector * 5)
+                    local goalCFrame = CFrame.new(behindPos, enemyHRP.Position)
 
-                -- Attach SuperKill hook (this will try to nuke health immediately and on change)
-                if superKillEnabled then
-                    AttachSuperKill(enemy)
-                else
-                    -- if superkill is disabled, ensure we don't keep a previous hook
-                    if currentHealthConnection then
-                        currentHealthConnection:Disconnect()
-                        currentHealthConnection = nil
-                    end
-                end
+                    -- Smoothly move towards behind position
+                    local dt = RunService.Heartbeat:Wait()
+                    local alpha = math.clamp(dt * lockSpeed, 0, 1)
+                    hrp.CFrame = hrp.CFrame:Lerp(goalCFrame, alpha)
 
-                -- Lock behind target (this will return when stopPredicate() becomes true)
-                LockBehindTargetWhileAlive(hrp, enemyHRP, stopPredicate)
-
-                -- If we exited the lock and the enemy is still valid and alive, do a punch
-                if enemy and enemy.Parent and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                    -- First punch
+                    -- Fire attack
                     game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
                         type = "M1",
                         InAir = false,
                         UpTilt = false
                     })
 
-                    -- If SuperKill is enabled, immediately attempt to finish them
+                    -- SuperKill
                     if superKillEnabled and enemy:FindFirstChild("Humanoid") then
-                        -- Redundant attempt (AttachSuperKill should already be active)
-                        pcall(function()
-                            enemy.Humanoid.Health = 0
-                        end)
-                        pcall(function()
-                            enemy.Humanoid:TakeDamage(enemy.Humanoid.MaxHealth + 1000)
-                        end)
+                        enemy.Humanoid.Health = 0
+                    end
+
+                    -- Stop locking if enemy is dead or quest ends
+                    if not enemy or not enemy.Parent or (enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health <= 0) then
+                        lockActive = false
                     end
                 end
             end
 
             task.wait(0.1)
         until not IsInQuest()
-
-        -- clean up health hook after leaving quest
-        if currentHealthConnection then
-            currentHealthConnection:Disconnect()
-            currentHealthConnection = nil
-        end
     end
 
     -- =======================
@@ -270,11 +192,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         Flag = "SuperKillToggle",
         Callback = function(state)
             superKillEnabled = state
-            -- if toggled off, clear any lingering hook
-            if not state and currentHealthConnection then
-                currentHealthConnection:Disconnect()
-                currentHealthConnection = nil
-            end
         end
     })
 end
