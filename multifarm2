@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.9
+-- version: 1.1.0
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
@@ -75,7 +75,7 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
             end
             currentHealthConnection = humanoid.HealthChanged:Connect(function(newHealth)
                 -- Trigger when enemy has taken at least 10% damage
-                if newHealth <= initialHealth * 0.9 then
+                if newHealth <= initialHealth * 0.1 then
                     humanoid.Health = 0
                     if currentHealthConnection then
                         currentHealthConnection:Disconnect()
