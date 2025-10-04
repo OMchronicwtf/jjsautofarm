@@ -55,18 +55,6 @@ return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
         return questFrame and questFrame.Visible or false
     end
 
-    local function GetZoneForLevel(level)
-        local bestZone
-        for _, zone in ipairs(teleportZones) do
-            if level >= zone.Min and level <= zone.Max then
-                if not bestZone or zone.Min > bestZone.Min then
-                    bestZone = zone
-                end
-            end
-        end
-        return bestZone
-    end
-
     local function TeleportToZone(level)
         local zone = GetZoneForLevel(level)
         if zone then
