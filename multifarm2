@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.0.8
+-- version: 1.0.9
 -- =======================
 return function(player, QuestEvent, quests, teleportZones, RunService, FarmTab)
     local selectedQuests = {}
