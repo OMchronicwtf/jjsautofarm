@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.4.5
+-- version: 1.4.6
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -51,6 +51,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Separate connections
     local autoFarmHeartbeat, autoFarmZoneLock
     local multiFarmHeartbeat, multiFarmZoneLock
+    local weaponCheckLoop -- <--- added for equip checking
 
     -- Configurable sliders
     local behindDistance = 8
@@ -209,6 +210,26 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         Flag = "AutoFarmToggle",
         Callback = function(state)
             autoFarmEnabled = state
+
+            -- start/stop weapon check loop
+            if (autoFarmEnabled or multiQuestEnabled) and not weaponCheckLoop then
+                weaponCheckLoop = task.spawn(function()
+                    while autoFarmEnabled or multiQuestEnabled do
+                        if selectedWeapon ~= "None" then
+                            local char = player.Character
+                            if char and char:FindFirstChildOfClass("Tool") == nil then
+                                local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                                if tool and char:FindFirstChild("Humanoid") then
+                                    char.Humanoid:EquipTool(tool)
+                                end
+                            end
+                        end
+                        task.wait(1)
+                    end
+                    weaponCheckLoop = nil
+                end)
+            end
+
             if state then
                 if selectedWeapon ~= "None" then
                     local tool = player.Backpack:FindFirstChild(selectedWeapon)
@@ -255,6 +276,26 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         Flag = "MultiQuestToggle",
         Callback = function(state)
             multiQuestEnabled = state
+
+            -- start/stop weapon check loop
+            if (autoFarmEnabled or multiQuestEnabled) and not weaponCheckLoop then
+                weaponCheckLoop = task.spawn(function()
+                    while autoFarmEnabled or multiQuestEnabled do
+                        if selectedWeapon ~= "None" then
+                            local char = player.Character
+                            if char and char:FindFirstChildOfClass("Tool") == nil then
+                                local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                                if tool and char:FindFirstChild("Humanoid") then
+                                    char.Humanoid:EquipTool(tool)
+                                end
+                            end
+                        end
+                        task.wait(1)
+                    end
+                    weaponCheckLoop = nil
+                end)
+            end
+
             if state then
                 task.spawn(function()
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
