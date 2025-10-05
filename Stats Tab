@@ -3,7 +3,7 @@ return function(Window, QuestEvent, player, RunService)
     -- =======================
     -- Create Stats Tab
     -- =======================
-    local StatsTab = Window:CreateTab("Auto Stats", "bar-chart")
+    local StatsTab = Window:CreateTab("Stats", "bar-chart")
 
     -- =======================
     -- Label for Available Points + Applied Stats
