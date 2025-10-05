@@ -294,6 +294,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
-    return FarmTab
+
     FarmTab:CreateSection()
+    return FarmTab
 end
