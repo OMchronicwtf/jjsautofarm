@@ -1,14 +1,16 @@
--- StatsModule.lua
-return function(StatsTab, QuestEvent, player)
-    local RunService = game:GetService("RunService")
-
-    -- Map stats
-    local StatMap = {Melee="M", Health="H", Weapon="S", Power="P"}
-    local statOptions = {"Melee", "Health", "Weapon", "Power"}
+-- StatsTabModule.lua
+return function(Window, QuestEvent, player, RunService)
+    -- =======================
+    -- Create Stats Tab
+    -- =======================
+    local StatsTab = Window:CreateTab("Auto Stats", "bar-chart")
 
     -- =======================
-    -- Points Label
+    -- Label for Available Points + Applied Stats
     -- =======================
+
+    StatsTab:CreateSection("Points Info")
+
     local pointsLabel = StatsTab:CreateLabel("Available Points: 0 | M: 1 | H: 1 | S: 1 | P: 1")
     RunService.Heartbeat:Connect(function()
         local data = player:WaitForChild("Data")
@@ -25,26 +27,35 @@ return function(StatsTab, QuestEvent, player)
     end)
 
     -- =======================
-    -- Auto Apply Stats
+    -- Stat Mappings & Options
     -- =======================
+    local StatMap = {Melee="M", Health="H", Weapon="S", Power="P"}
+    local statOptions = {"Melee", "Health", "Weapon", "Power"}
+
+    -- =======================
+    -- Auto Apply Stats Section
+    -- =======================
+    StatsTab:CreateSection("Auto Apply Stats")
     local selectedAutoStats = {statOptions[1]}
     local autoPoints = 0
     local autoApplyEnabled = false
     local autoApplyConnection
 
-    StatsTab:CreateSection("Auto Apply Stats")
+    -- Input for auto points
     StatsTab:CreateInput({
-        Name = "Auto Points Amount",
+        Name = "Points to Auto Apply",
         CurrentValue = "",
-        PlaceholderText = "Enter points to apply automatically",
+        PlaceholderText = "Enter number of points",
         RemoveTextAfterFocusLost = true,
         Flag = "AutoPointsInput",
         Callback = function(value)
             autoPoints = tonumber(value) or 0
         end
     })
+
+    -- Multi-select dropdown
     StatsTab:CreateDropdown({
-        Name = "Select Stat/s for Auto Apply",
+        Name = "Select Stats for Auto Apply",
         Options = statOptions,
         CurrentOption = {statOptions[1]},
         MultipleOptions = true,
@@ -53,6 +64,8 @@ return function(StatsTab, QuestEvent, player)
             selectedAutoStats = options
         end
     })
+
+    -- Toggle to enable auto apply
     StatsTab:CreateToggle({
         Name = "Enable Auto Apply",
         CurrentValue = false,
@@ -62,6 +75,7 @@ return function(StatsTab, QuestEvent, player)
             if state then
                 autoApplyConnection = RunService.Heartbeat:Connect(function()
                     if not autoApplyEnabled then return end
+
                     local availablePoints = player:WaitForChild("Data"):WaitForChild("Points").Value
                     if availablePoints > 0 and autoPoints > 0 then
                         for _, statName in ipairs(selectedAutoStats) do
@@ -88,24 +102,27 @@ return function(StatsTab, QuestEvent, player)
     })
 
     -- =======================
-    -- Manual Apply Stats
+    -- Manual Apply Stats Section
     -- =======================
+    StatsTab:CreateSection("Self Apply Points")
     local selectedManualStat = statOptions[1]
     local manualPoints = 0
 
-    StatsTab:CreateSection("Manual Apply Stats")
+    -- Input for manual points
     StatsTab:CreateInput({
-        Name = "Manual Points Amount",
+        Name = "Amount",
         CurrentValue = "",
-        PlaceholderText = "Enter points to apply manually",
+        PlaceholderText = "Enter number of points",
         RemoveTextAfterFocusLost = true,
         Flag = "ManualPointsInput",
         Callback = function(value)
             manualPoints = tonumber(value) or 0
         end
     })
+
+    -- Dropdown to select single stat
     StatsTab:CreateDropdown({
-        Name = "Select Stat for Manual Apply",
+        Name = "Select Stat",
         Options = statOptions,
         CurrentOption = {statOptions[1]},
         MultipleOptions = false,
@@ -114,6 +131,8 @@ return function(StatsTab, QuestEvent, player)
             selectedManualStat = option[1]
         end
     })
+
+    -- Button to apply manual points
     StatsTab:CreateButton({
         Name = "Apply Points",
         Callback = function()
@@ -128,7 +147,7 @@ return function(StatsTab, QuestEvent, player)
     })
 
     -- =======================
-    -- Reset All Points
+    -- Reset Section
     -- =======================
     StatsTab:CreateSection("Reset")
     StatsTab:CreateButton({
