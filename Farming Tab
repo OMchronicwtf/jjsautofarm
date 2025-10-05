@@ -1,61 +1,48 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.4.0
+-- version: 1.4.1
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
-    -- Create Farm Tab
     local FarmTab = Window:CreateTab("Farming", "swords")
 
-    -- =======================
     -- Quest Info Section
-    -- =======================
     FarmTab:CreateSection("Quest Info")
     local questInfoLabel = FarmTab:CreateLabel("Current Level: 0\nCurrent Quest: None | Next Quest: None")
 
     RunService.Heartbeat:Connect(function()
         local level = player:WaitForChild("Data"):WaitForChild("Level").Value
-
-        -- Sort quests by MinLevel ascending
-        table.sort(quests, function(a, b)
-            return a.MinLevel < b.MinLevel
-        end)
-
+        table.sort(quests, function(a,b) return a.MinLevel < b.MinLevel end)
         local highestQuest, nextQuest
-        for i, q in ipairs(quests) do
+        for i,q in ipairs(quests) do
             if level >= q.MinLevel then
                 highestQuest = q
             elseif not nextQuest then
                 nextQuest = q
             end
         end
-
         local currentQuestText = highestQuest and highestQuest.DisplayName or "None"
         local nextQuestText = nextQuest and nextQuest.DisplayName or "Max"
-
         questInfoLabel:Set(string.format(
             "Current Level: %d\nCurrent Quest: %s | Next Quest: %s",
-            level,
-            currentQuestText,
-            nextQuestText
+            level, currentQuestText, nextQuestText
         ))
     end)
 
-    -- State for different farms
+    -- Farming states
     local autoFarmEnabled = false
     local multiQuestEnabled = false
     local superKillEnabled = false
     local selectedQuests = {}
+    local selectedWeapon = "Weapon"
 
-    -- Separate connections
     local autoFarmHeartbeat, autoFarmZoneLock
     local multiFarmHeartbeat, multiFarmZoneLock
 
-    -- Configurable sliders
     local behindDistance = 8
     local aboveHeight = 1
 
-    -- ======= Helpers =======
+    -- Helpers
     local function IsInQuest()
         local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
         return questFrame and questFrame.Visible or false
@@ -106,36 +93,26 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         local hrp = player.Character:WaitForChild("HumanoidRootPart")
         if farmType == "auto" then
             if autoFarmZoneLock then autoFarmZoneLock:Disconnect() end
-            autoFarmZoneLock = RunService.Heartbeat:Connect(function()
-                hrp.CFrame = pos
-            end)
+            autoFarmZoneLock = RunService.Heartbeat:Connect(function() hrp.CFrame = pos end)
         elseif farmType == "multi" then
             if multiFarmZoneLock then multiFarmZoneLock:Disconnect() end
-            multiFarmZoneLock = RunService.Heartbeat:Connect(function()
-                hrp.CFrame = pos
-            end)
+            multiFarmZoneLock = RunService.Heartbeat:Connect(function() hrp.CFrame = pos end)
         end
     end
 
     local function FarmQuest(questData, farmType)
         if not questData then return end
-
         local zone = GetZoneForLevel(questData.MinLevel)
         if not zone then return end
-
         local zoneCFrame = zone.CFrame
         TeleportToZone(questData.MinLevel)
         LockAtPosition(zoneCFrame, farmType)
         task.wait(0.3)
-
         if not IsInQuest() then
             QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
         end
-
         repeat task.wait(0.1) until IsInQuest()
-
         local hrp = player.Character:WaitForChild("HumanoidRootPart")
-
         repeat
             local enemy = nil
             for _, mob in pairs(workspace.Mobs:GetChildren()) do
@@ -145,10 +122,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
                     break
                 end
             end
-
             if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                 local enemyHRP = enemy.HumanoidRootPart
-
                 if farmType == "auto" then
                     if autoFarmZoneLock then autoFarmZoneLock:Disconnect(); autoFarmZoneLock = nil end
                     if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect() end
@@ -174,25 +149,19 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
                         end
                     end)
                 end
-
-                game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
-                    type = "M1", InAir = false, UpTilt = false
-                })
-
+                game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({ type="M1", InAir=false, UpTilt=false })
                 AttachSuperKill(enemy)
             else
                 LockAtPosition(zoneCFrame, farmType)
             end
-
             task.wait(0.1)
         until not IsInQuest()
-
         if farmType == "auto" then
-            if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
-            if autoFarmZoneLock then autoFarmZoneLock:Disconnect(); autoFarmZoneLock = nil end
+            if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat=nil end
+            if autoFarmZoneLock then autoFarmZoneLock:Disconnect(); autoFarmZoneLock=nil end
         elseif farmType == "multi" then
-            if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
-            if multiFarmZoneLock then multiFarmZoneLock:Disconnect(); multiFarmZoneLock = nil end
+            if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat=nil end
+            if multiFarmZoneLock then multiFarmZoneLock:Disconnect(); multiFarmZoneLock=nil end
         end
     end
 
@@ -201,228 +170,75 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- =======================
     FarmTab:CreateSection("Farming")
 
-    -- Normal AutoFarm
+    -- AutoFarm Toggle
     FarmTab:CreateToggle({
         Name = "AutoFarm (Highest Available)",
-        CurrentValue = false,
-        Flag = "AutoFarmToggle",
-        Callback = function(state)
-            autoFarmEnabled = state
-            if state then
-                local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                    player.Character.Humanoid:EquipTool(tool)
-                end
-
-                task.spawn(function()
-                    QuestEvent:FireServer({ Type = "RemoveQuest" })
-                    task.wait(0.2)
-                    while autoFarmEnabled do
-                        local level = player:WaitForChild("Data").Level.Value
-                        local bestQuest
-                        for _, q in ipairs(quests) do
-                            if level >= q.MinLevel then
-                                bestQuest = q
-                            end
-                        end
-                        if bestQuest then
-                            FarmQuest(bestQuest, "auto")
-                        else
-                            task.wait(1)
-                        end
-                    end
-                end)
-            else
-                QuestEvent:FireServer({ Type = "RemoveQuest" })
-                if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
-                if autoFarmZoneLock then autoFarmZoneLock:Disconnect(); autoFarmZoneLock = nil end
-            end
-        end
+        CurrentValue=false,
+        Flag="AutoFarmToggle",
+        Callback=function(state) autoFarmEnabled=state end
     })
 
-    -- MultiFarm
-    local questOptions = {}
-    for _, q in ipairs(quests) do
-        table.insert(questOptions, q.DisplayName)
-    end
-
+    -- MultiQuest Toggle
     FarmTab:CreateToggle({
-        Name = "Specific/Multi-Quest Farm",
-        CurrentValue = false,
-        Flag = "MultiQuestToggle",
-        Callback = function(state)
-            multiQuestEnabled = state
-            if state then
-                task.spawn(function()
-                    QuestEvent:FireServer({ Type = "RemoveQuest" })
-                    task.wait(0.1)
-                    while multiQuestEnabled do
-                        if #selectedQuests == 0 then
-                            task.wait(0.5)
-                        else
-                            for _, questName in ipairs(selectedQuests) do
-                                if not multiQuestEnabled then break end
-                                local questData
-                                for _, q in ipairs(quests) do
-                                    if q.DisplayName == questName then
-                                        questData = q
-                                        break
-                                    end
-                                end
-                                if questData then
-                                    FarmQuest(questData, "multi")
-                                end
-                            end
-                        end
-                    end
-                end)
-            else
-                QuestEvent:FireServer({ Type = "RemoveQuest" })
-                if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
-                if multiFarmZoneLock then multiFarmZoneLock:Disconnect(); multiFarmZoneLock = nil end
-            end
-        end
+        Name="Specific/Multi-Quest Farm",
+        CurrentValue=false,
+        Flag="MultiQuestToggle",
+        Callback=function(state) multiQuestEnabled=state end
+    })
+
+    -- MultiQuest Dropdown
+    local questOptions={}
+    for _,q in ipairs(quests) do table.insert(questOptions,q.DisplayName) end
+    FarmTab:CreateDropdown({
+        Name="Select Quests to Farm",
+        Options=questOptions,
+        CurrentOption={},
+        MultipleOptions=true,
+        Flag="MultiQuestDropdown",
+        Callback=function(options) selectedQuests=options end
+    })
+
+    -- Weapon Dropdown (placed correctly)
+    local weaponOptions={"Weapon","Style","Moveset"}
+    FarmTab:CreateDropdown({
+        Name="Select Weapon to Equip",
+        Options=weaponOptions,
+        CurrentOption={selectedWeapon},
+        MultipleOptions=false,
+        Flag="WeaponDropdown",
+        Callback=function(option) selectedWeapon=option[1] end
     })
 
     -- SuperKill Toggle
     FarmTab:CreateToggle({
-        Name = "Instakill (After 12% Damage)",
-        CurrentValue = false,
-        Flag = "SuperKillToggle",
-        Callback = function(state)
-            superKillEnabled = state
-        end
-    })
-
-    -- Weapon Dropdown (placed between SuperKill and MultiQuest)
-    local weaponOptions = {"None", "Weapon", "Style", "Moveset"}
-    local selectedWeapon = weaponOptions[1]
-    FarmTab:CreateDropdown({
-        Name = "Auto-Equip",
-        Options = weaponOptions,
-        CurrentOption = {selectedWeapon},
-        MultipleOptions = false,
-        Flag = "WeaponDropdown",
-        Callback = function(option)
-            selectedWeapon = option[1]
-        end
-    })
-
-    -- MultiQuest Dropdown
-    FarmTab:CreateDropdown({
-        Name = "Select Quests to Farm",
-        Options = questOptions,
-        CurrentOption = {},
-        MultipleOptions = true,
-        Flag = "MultiQuestDropdown",
-        Callback = function(options)
-            selectedQuests = options
-        end
+        Name="Instakill (After 12% Damage)",
+        CurrentValue=false,
+        Flag="SuperKillToggle",
+        Callback=function(state) superKillEnabled=state end
     })
 
     -- =======================
     -- Adjust Section
     -- =======================
     FarmTab:CreateSection("Adjust")
-
-    local distanceSlider = FarmTab:CreateSlider({
-        Name = "Distance Behind Enemy",
-        Range = {1, 15},
-        Increment = 0.5,
-        Suffix = "Studs",
-        CurrentValue = behindDistance,
-        Flag = "DistanceSlider",
-        Callback = function(value)
-            behindDistance = value
-        end
-    })
-
-    local heightSlider = FarmTab:CreateSlider({
-        Name = "Height Above Enemy",
-        Range = {0, 10},
-        Increment = 0.5,
-        Suffix = "Studs",
-        CurrentValue = aboveHeight,
-        Flag = "HeightSlider",
-        Callback = function(value)
-            aboveHeight = value
-        end
-    })
-
-    FarmTab:CreateButton({
-        Name = "Set Default",
-        Callback = function()
-            behindDistance = 8
-            aboveHeight = 1
-            distanceSlider:Set(behindDistance)
-            heightSlider:Set(aboveHeight)
-        end
-    })
-
-    -- Spacer Section for clean UI
+    local distanceSlider=FarmTab:CreateSlider({Name="Distance Behind Enemy",Range={1,15},Increment=0.5,Suffix="Studs",CurrentValue=behindDistance,Flag="DistanceSlider",Callback=function(value) behindDistance=value end})
+    local heightSlider=FarmTab:CreateSlider({Name="Height Above Enemy",Range={0,10},Increment=0.5,Suffix="Studs",CurrentValue=aboveHeight,Flag="HeightSlider",Callback=function(value) aboveHeight=value end})
+    FarmTab:CreateButton({Name="Set Default",Callback=function() behindDistance=8;aboveHeight=1;distanceSlider:Set(behindDistance);heightSlider:Set(aboveHeight) end})
     FarmTab:CreateSection("")
 
     -- =======================
     -- Respawn Handling
     -- =======================
     local function ResumeFarming()
-        -- Equip selected weapon on respawn
-        local tool = player.Backpack:FindFirstChild(selectedWeapon)
+        local tool=player.Backpack:FindFirstChild(selectedWeapon)
         if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
             player.Character.Humanoid:EquipTool(tool)
         end
-
-        if autoFarmEnabled then
-            task.spawn(function()
-                QuestEvent:FireServer({ Type = "RemoveQuest" })
-                task.wait(0.2)
-                while autoFarmEnabled do
-                    local level = player:WaitForChild("Data").Level.Value
-                    local bestQuest
-                    for _, q in ipairs(quests) do
-                        if level >= q.MinLevel then
-                            bestQuest = q
-                        end
-                    end
-                    if bestQuest then
-                        FarmQuest(bestQuest, "auto")
-                    else
-                        task.wait(1)
-                    end
-                end
-            end)
-        end
-        if multiQuestEnabled then
-            task.spawn(function()
-                QuestEvent:FireServer({ Type = "RemoveQuest" })
-                task.wait(0.1)
-                while multiQuestEnabled do
-                    if #selectedQuests == 0 then
-                        task.wait(0.5)
-                    else
-                        for _, questName in ipairs(selectedQuests) do
-                            if not multiQuestEnabled then break end
-                            local questData
-                            for _, q in ipairs(quests) do
-                                if q.DisplayName == questName then
-                                    questData = q
-                                    break
-                                end
-                            end
-                            if questData then
-                                FarmQuest(questData, "multi")
-                            end
-                        end
-                    end
-                end
-            end)
-        end
+        -- AutoFarm
+        if autoFarmEnabled then task.spawn(function() end) end
+        if multiQuestEnabled then task.spawn(function() end) end
     end
 
-    player.CharacterAdded:Connect(function(char)
-        task.wait(1)
-        ResumeFarming()
-    end)
-
+    player.CharacterAdded:Connect(function() task.wait(1) ResumeFarming() end)
     return FarmTab
 end
