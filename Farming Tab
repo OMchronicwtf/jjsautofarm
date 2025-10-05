@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.4.3
+-- version: 1.4.4
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -46,6 +46,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     local multiQuestEnabled = false
     local superKillEnabled = false
     local selectedQuests = {}
+    local selectedWeapon -- fix: declare only once here
 
     -- Separate connections
     local autoFarmHeartbeat, autoFarmZoneLock
@@ -294,9 +295,9 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
-    -- Weapon Dropdown (placed between SuperKill and MultiQuest)
+    -- Weapon Dropdown (between SuperKill and MultiQuest)
     local weaponOptions = {"Weapon", "Style", "Moveset"}
-    local selectedWeapon = weaponOptions[1]
+    selectedWeapon = weaponOptions[1]
     FarmTab:CreateDropdown({
         Name = "Select Weapon to Equip",
         Options = weaponOptions,
@@ -359,14 +360,12 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
-    -- Spacer Section for clean UI
     FarmTab:CreateSection("")
 
     -- =======================
     -- Respawn Handling
     -- =======================
     local function ResumeFarming()
-        -- Equip selected weapon on respawn
         local tool = player.Backpack:FindFirstChild(selectedWeapon)
         if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
             player.Character.Humanoid:EquipTool(tool)
