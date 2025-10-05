@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.4.2
+-- version: 1.4.3
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -298,7 +298,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     local weaponOptions = {"Weapon", "Style", "Moveset"}
     local selectedWeapon = weaponOptions[1]
     FarmTab:CreateDropdown({
-        Name = "Auto-Equip",
+        Name = "Select Weapon to Equip",
         Options = weaponOptions,
         CurrentOption = {selectedWeapon},
         MultipleOptions = false,
