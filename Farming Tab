@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.2.8
+-- version: 1.2.9
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -16,7 +16,11 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     RunService.Heartbeat:Connect(function()
         local level = player:WaitForChild("Data"):WaitForChild("Level").Value
 
-        -- Find highest available quest + next quest
+        -- Sort quests by MinLevel ascending
+        table.sort(quests, function(a, b)
+            return a.MinLevel < b.MinLevel
+        end)
+
         local highestQuest, nextQuest
         for i, q in ipairs(quests) do
             if level >= q.MinLevel then
