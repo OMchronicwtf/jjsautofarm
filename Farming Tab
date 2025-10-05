@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.4.4
+-- version: 1.4.5
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -46,7 +46,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     local multiQuestEnabled = false
     local superKillEnabled = false
     local selectedQuests = {}
-    local selectedWeapon -- fix: declare only once here
+    local selectedWeapon = "None"
 
     -- Separate connections
     local autoFarmHeartbeat, autoFarmZoneLock
@@ -210,9 +210,11 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         Callback = function(state)
             autoFarmEnabled = state
             if state then
-                local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                    player.Character.Humanoid:EquipTool(tool)
+                if selectedWeapon ~= "None" then
+                    local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                    if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
+                        player.Character.Humanoid:EquipTool(tool)
+                    end
                 end
 
                 task.spawn(function()
@@ -285,6 +287,18 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
+    -- MultiQuest Dropdown (underneath toggle again)
+    FarmTab:CreateDropdown({
+        Name = "Select Quests to Farm",
+        Options = questOptions,
+        CurrentOption = {},
+        MultipleOptions = true,
+        Flag = "MultiQuestDropdown",
+        Callback = function(options)
+            selectedQuests = options
+        end
+    })
+
     -- SuperKill Toggle
     FarmTab:CreateToggle({
         Name = "Instakill (After 12% Damage)",
@@ -295,9 +309,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
-    -- Weapon Dropdown (between SuperKill and MultiQuest)
-    local weaponOptions = {"Weapon", "Style", "Moveset"}
-    selectedWeapon = weaponOptions[1]
+    -- Weapon Dropdown (now with "None")
+    local weaponOptions = {"None", "Weapon", "Style", "Moveset"}
     FarmTab:CreateDropdown({
         Name = "Select Weapon to Equip",
         Options = weaponOptions,
@@ -306,18 +319,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         Flag = "WeaponDropdown",
         Callback = function(option)
             selectedWeapon = option[1]
-        end
-    })
-
-    -- MultiQuest Dropdown
-    FarmTab:CreateDropdown({
-        Name = "Select Quests to Farm",
-        Options = questOptions,
-        CurrentOption = {},
-        MultipleOptions = true,
-        Flag = "MultiQuestDropdown",
-        Callback = function(options)
-            selectedQuests = options
         end
     })
 
@@ -366,9 +367,11 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Respawn Handling
     -- =======================
     local function ResumeFarming()
-        local tool = player.Backpack:FindFirstChild(selectedWeapon)
-        if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid:EquipTool(tool)
+        if selectedWeapon ~= "None" then
+            local tool = player.Backpack:FindFirstChild(selectedWeapon)
+            if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
+                player.Character.Humanoid:EquipTool(tool)
+            end
         end
 
         if autoFarmEnabled then
