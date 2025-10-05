@@ -14,44 +14,9 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     local heartbeatConnection
     local zoneLockConnection
 
-    -- ======= Configurable sliders =======
+    -- ======= Configurable sliders (defaults) =======
     local behindDistance = 8
     local aboveHeight = 1
-
-    local distanceSlider = FarmTab:CreateSlider({
-        Name = "Distance Behind Enemy",
-        Range = {1, 15},
-        Increment = 0.5,
-        Suffix = "Studs",
-        CurrentValue = behindDistance,
-        Flag = "DistanceSlider",
-        Callback = function(value)
-            behindDistance = value
-        end
-    })
-
-    local heightSlider = FarmTab:CreateSlider({
-        Name = "Height Above Enemy",
-        Range = {0, 10},
-        Increment = 0.5,
-        Suffix = "Studs",
-        CurrentValue = aboveHeight,
-        Flag = "HeightSlider",
-        Callback = function(value)
-            aboveHeight = value
-        end
-    })
-
-    -- ======= "Set Default" button =======
-    FarmTab:CreateButton({
-        Name = "Set Default",
-        Callback = function()
-            behindDistance = 8
-            aboveHeight = 1
-            distanceSlider:Set(behindDistance)
-            heightSlider:Set(aboveHeight)
-        end
-    })
 
     -- ======= Helpers =======
     local function IsInQuest()
@@ -183,9 +148,14 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     end
 
+    -- =======================
+    -- Farming Section
+    -- =======================
+    FarmTab:CreateSection("Farming")
+
     -- Normal Autofarm
     FarmTab:CreateToggle({
-        Name = "AutoFarm (Highest Quest)",
+        Name = "AutoFarm (Highest Available)",
         CurrentValue = false,
         Flag = "AutoFarmToggle",
         Callback = function(state)
@@ -218,25 +188,14 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
-    -- Multi-Quest Farm
+    -- Multi-Quest Dropdown + Toggle
     local questOptions = {}
     for _, q in ipairs(quests) do
         table.insert(questOptions, q.DisplayName)
     end
 
-    FarmTab:CreateDropdown({
-        Name = "Select Quests to Farm",
-        Options = questOptions,
-        CurrentOption = {},
-        MultipleOptions = true,
-        Flag = "MultiQuestDropdown",
-        Callback = function(options)
-            selectedQuests = options
-        end
-    })
-
     FarmTab:CreateToggle({
-        Name = "Enable Multi-Quest Farm",
+        Name = "Specific/Multi-Quest Farm",
         CurrentValue = false,
         Flag = "MultiQuestToggle",
         Callback = function(state)
@@ -274,13 +233,64 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
+    FarmTab:CreateDropdown({
+        Name = "Select Quests to Farm",
+        Options = questOptions,
+        CurrentOption = {},
+        MultipleOptions = true,
+        Flag = "MultiQuestDropdown",
+        Callback = function(options)
+            selectedQuests = options
+        end
+    })
+
     -- SuperKill Toggle
     FarmTab:CreateToggle({
-        Name = "SuperKill (Instakill Target)",
+        Name = "Instakill (After 12% Damage)",
         CurrentValue = false,
         Flag = "SuperKillToggle",
         Callback = function(state)
             superKillEnabled = state
+        end
+    })
+
+    -- =======================
+    -- Adjust Section
+    -- =======================
+    FarmTab:CreateSection("Adjust")
+
+    local distanceSlider = FarmTab:CreateSlider({
+        Name = "Distance Behind Enemy",
+        Range = {1, 15},
+        Increment = 0.5,
+        Suffix = "Studs",
+        CurrentValue = behindDistance,
+        Flag = "DistanceSlider",
+        Callback = function(value)
+            behindDistance = value
+        end
+    })
+
+    local heightSlider = FarmTab:CreateSlider({
+        Name = "Height Above Enemy",
+        Range = {0, 10},
+        Increment = 0.5,
+        Suffix = "Studs",
+        CurrentValue = aboveHeight,
+        Flag = "HeightSlider",
+        Callback = function(value)
+            aboveHeight = value
+        end
+    })
+
+    -- ======= "Set Default" button =======
+    FarmTab:CreateButton({
+        Name = "Set Default",
+        Callback = function()
+            behindDistance = 8
+            aboveHeight = 1
+            distanceSlider:Set(behindDistance)
+            heightSlider:Set(aboveHeight)
         end
     })
 
