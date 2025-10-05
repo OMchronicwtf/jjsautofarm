@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.3.0
+-- version: 1.3.1
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -11,7 +11,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Quest Info Section
     -- =======================
     FarmTab:CreateSection("Quest Info")
-    local questInfoLabel = FarmTab:CreateLabel("Current Level: 0\nCurrent Quest: None\nNext Quest: None")
+    local questInfoLabel = FarmTab:CreateLabel("Current Level: 0\nCurrent Quest: None | Next Quest: None")
 
     RunService.Heartbeat:Connect(function()
         local level = player:WaitForChild("Data"):WaitForChild("Level").Value
@@ -30,12 +30,11 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
             end
         end
 
-        -- Build label text without levels in brackets
         local currentQuestText = highestQuest and highestQuest.DisplayName or "None"
         local nextQuestText = nextQuest and nextQuest.DisplayName or "Max"
 
         questInfoLabel:Set(string.format(
-            "Current Level: %d\nCurrent Quest: %s\nNext Quest: %s",
+            "Current Level: %d\nCurrent Quest: %s | Next Quest: %s",
             level,
             currentQuestText,
             nextQuestText
