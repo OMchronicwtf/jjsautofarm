@@ -8,6 +8,9 @@ return function(Window, QuestEvent, player, RunService)
     -- =======================
     -- Label for Available Points + Applied Stats
     -- =======================
+
+    StatsTab:CreateSection("Points Info")
+
     local pointsLabel = StatsTab:CreateLabel("Available Points: 0 | Melee: 1 | Health: 1 | Weapon: 1 | Power: 1")
     RunService.Heartbeat:Connect(function()
         local data = player:WaitForChild("Data")
@@ -161,5 +164,6 @@ return function(Window, QuestEvent, player, RunService)
                 Type = "Resett"
             })
         end
+    StatsTab:CreateSection("")
     })
 end
