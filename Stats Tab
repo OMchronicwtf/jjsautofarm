@@ -164,6 +164,6 @@ return function(Window, QuestEvent, player, RunService)
                 Type = "Resett"
             })
         end
-    StatsTab:CreateSection("")
+    StatsTab:CreateSection()
     })
 end
