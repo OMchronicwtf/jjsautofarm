@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.3.9
+-- version: 1.4.0
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -201,28 +201,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- =======================
     FarmTab:CreateSection("Farming")
 
-    -- Weapon dropdown inside Farming section
-    local weapons = {"Weapon", "Style", "Moveset"}
-    local selectedWeapon = "Weapon"
-
-    local weaponDropdown = FarmTab:CreateDropdown({
-        Name = "Select Weapon to Auto-Equip",
-        Options = weapons,
-        CurrentOption = {selectedWeapon},
-        MultipleOptions = false,
-        Flag = "WeaponDropdown",
-        Callback = function(option)
-            selectedWeapon = option[1]
-            -- Immediately equip if farming is active
-            if autoFarmEnabled or multiQuestEnabled then
-                local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                    player.Character.Humanoid:EquipTool(tool)
-                end
-            end
-        end
-    })
-
     -- Normal AutoFarm
     FarmTab:CreateToggle({
         Name = "AutoFarm (Highest Available)",
@@ -275,11 +253,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         Callback = function(state)
             multiQuestEnabled = state
             if state then
-                local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                    player.Character.Humanoid:EquipTool(tool)
-                end
-
                 task.spawn(function()
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
                     task.wait(0.1)
@@ -311,6 +284,31 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
+    -- SuperKill Toggle
+    FarmTab:CreateToggle({
+        Name = "Instakill (After 12% Damage)",
+        CurrentValue = false,
+        Flag = "SuperKillToggle",
+        Callback = function(state)
+            superKillEnabled = state
+        end
+    })
+
+    -- Weapon Dropdown (placed between SuperKill and MultiQuest)
+    local weaponOptions = {"Weapon", "Style", "Moveset"}
+    local selectedWeapon = weaponOptions[1]
+    FarmTab:CreateDropdown({
+        Name = "Select Weapon to Equip",
+        Options = weaponOptions,
+        CurrentOption = {selectedWeapon},
+        MultipleOptions = false,
+        Flag = "WeaponDropdown",
+        Callback = function(option)
+            selectedWeapon = option[1]
+        end
+    })
+
+    -- MultiQuest Dropdown
     FarmTab:CreateDropdown({
         Name = "Select Quests to Farm",
         Options = questOptions,
@@ -319,16 +317,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         Flag = "MultiQuestDropdown",
         Callback = function(options)
             selectedQuests = options
-        end
-    })
-
-    -- SuperKill
-    FarmTab:CreateToggle({
-        Name = "Instakill (After 12% Damage)",
-        CurrentValue = false,
-        Flag = "SuperKillToggle",
-        Callback = function(state)
-            superKillEnabled = state
         end
     })
 
@@ -378,11 +366,13 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Respawn Handling
     -- =======================
     local function ResumeFarming()
+        -- Equip selected weapon on respawn
+        local tool = player.Backpack:FindFirstChild(selectedWeapon)
+        if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid:EquipTool(tool)
+        end
+
         if autoFarmEnabled then
-            local tool = player.Backpack:FindFirstChild(selectedWeapon)
-            if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid:EquipTool(tool)
-            end
             task.spawn(function()
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
                 task.wait(0.2)
@@ -403,10 +393,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
             end)
         end
         if multiQuestEnabled then
-            local tool = player.Backpack:FindFirstChild(selectedWeapon)
-            if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid:EquipTool(tool)
-            end
             task.spawn(function()
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
                 task.wait(0.1)
