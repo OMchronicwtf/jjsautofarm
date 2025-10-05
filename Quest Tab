@@ -1,11 +1,14 @@
 -- =======================
--- AutoQuest Module (Highest Quest + Specific Quest)
--- version: 1.0.0
+-- AutoQuest Module (Organized)
+-- version: 1.0.1
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
     -- Create AutoQuest Tab
     local AutoQuestTab = Window:CreateTab("AutoQuest", "scroll")
+
+    -- Create section
+    AutoQuestTab:CreateSection("Auto Quests")
 
     -- =======================
     -- AutoQuest (Highest Quest)
@@ -30,7 +33,7 @@ return function(Window, player, QuestEvent, quests, RunService)
     end
 
     AutoQuestTab:CreateToggle({
-        Name = "Enable AutoQuest (Highest Quest)",
+        Name = "AutoQuest (Highest Available)",
         CurrentValue = false,
         Flag = "AutoQuestToggle",
         Callback = function(state)
@@ -61,32 +64,13 @@ return function(Window, player, QuestEvent, quests, RunService)
     -- =======================
     -- Auto Start Specific Quest
     -- =======================
-    AutoQuestTab:CreateSection("Auto Start Specific Quest")
-
     local selectedQuest = quests[1].DisplayName
     local autoStartSpecificEnabled = false
     local specificQuestConnection
 
-    -- Dropdown for quests
-    local questOptions = {}
-    for _, q in ipairs(quests) do
-        table.insert(questOptions, q.DisplayName)
-    end
-
-    AutoQuestTab:CreateDropdown({
-        Name = "Choose Quest",
-        Options = questOptions,
-        CurrentOption = {questOptions[1]},
-        MultipleOptions = false,
-        Flag = "SpecificQuestDropdown",
-        Callback = function(options)
-            selectedQuest = options[1]
-        end
-    })
-
-    -- Toggle to start the specific quest
+    -- Toggle first
     AutoQuestTab:CreateToggle({
-        Name = "Enable Auto Start Quest",
+        Name = "Start Specific Quest",
         CurrentValue = false,
         Flag = "AutoStartSpecificToggle",
         Callback = function(state)
@@ -122,6 +106,23 @@ return function(Window, player, QuestEvent, quests, RunService)
                 end
                 QuestEvent:FireServer({Type = "RemoveQuest"})
             end
+        end
+    })
+
+    -- Dropdown second
+    local questOptions = {}
+    for _, q in ipairs(quests) do
+        table.insert(questOptions, q.DisplayName)
+    end
+
+    AutoQuestTab:CreateDropdown({
+        Name = "Choose Quest",
+        Options = questOptions,
+        CurrentOption = {questOptions[1]},
+        MultipleOptions = false,
+        Flag = "SpecificQuestDropdown",
+        Callback = function(options)
+            selectedQuest = options[1]
         end
     })
 
