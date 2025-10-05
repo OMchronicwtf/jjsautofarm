@@ -1,0 +1,151 @@
+-- =======================
+-- Full Stats Tab Module
+-- =======================
+return function(Window, QuestEvent, player, RunService)
+    local StatsTab = Window:CreateTab("Auto Stats", "bar-chart")
+
+    -- =======================
+    -- Points Label
+    -- =======================
+    StatsTab:CreateSection("Points")
+    local pointsLabel = StatsTab:CreateLabel("Available Points: 0 | M: 0 | H: 0 | S: 0 | P: 0")
+    RunService.Heartbeat:Connect(function()
+        local data = player:WaitForChild("Data")
+        local points = data:WaitForChild("Points").Value
+        local melee = data:GetAttribute("M") or 0
+        local health = data:GetAttribute("H") or 0
+        local weapon = data:GetAttribute("S") or 0
+        local power = data:GetAttribute("P") or 0
+
+        pointsLabel:Set(string.format(
+            "Available Points: %d | Melee: %d | Health: %d | Weapon: %d | Power: %d",
+            points, melee, health, weapon, power
+        ))
+    end)
+
+    -- =======================
+    -- Manual Self-Apply Section
+    -- =======================
+    StatsTab:CreateSection("Self Apply Points")
+    local StatMap = {Melee="M", Health="H", Weapon="S", Power="P"}
+    local statOptions = {"Melee", "Health", "Weapon", "Power"}
+
+    local selectedStat = statOptions[1]
+    local inputPoints = 0
+
+    StatsTab:CreateInput({
+        Name = "Amount",
+        CurrentValue = "",
+        PlaceholderText = "Enter number of points",
+        RemoveTextAfterFocusLost = true,
+        Flag = "PointsInput",
+        Callback = function(value)
+            inputPoints = tonumber(value) or 0
+        end
+    })
+
+    StatsTab:CreateDropdown({
+        Name = "Select Stat",
+        Options = statOptions,
+        CurrentOption = {statOptions[1]},
+        MultipleOptions = false,
+        Flag = "StatDropdown",
+        Callback = function(option)
+            selectedStat = option[1]
+        end
+    })
+
+    StatsTab:CreateButton({
+        Name = "Apply Points",
+        Callback = function()
+            if inputPoints > 0 and selectedStat and StatMap[selectedStat] then
+                QuestEvent:FireServer({
+                    Type = "StatsAdd",
+                    C = StatMap[selectedStat],
+                    Amount = inputPoints
+                })
+            end
+        end
+    })
+
+    -- =======================
+    -- Auto Apply Stats Section
+    -- =======================
+    StatsTab:CreateSection("Auto Apply Stats")
+
+    local selectedAutoStats = {statOptions[1]} -- table of selected stats
+    local autoPoints = 0
+    local autoApplyEnabled = false
+    local autoApplyConnection
+
+    StatsTab:CreateInput({
+        Name = "Amount",
+        CurrentValue = "",
+        PlaceholderText = "Enter number of points",
+        RemoveTextAfterFocusLost = true,
+        Flag = "AutoPointsInput",
+        Callback = function(value)
+            autoPoints = tonumber(value) or 0
+        end
+    })
+
+    StatsTab:CreateDropdown({
+        Name = "Select Stat/s",
+        Options = statOptions,
+        CurrentOption = {statOptions[1]},
+        MultipleOptions = true,
+        Flag = "AutoStatDropdown",
+        Callback = function(options)
+            selectedAutoStats = options
+        end
+    })
+
+    StatsTab:CreateToggle({
+        Name = "Auto Apply",
+        CurrentValue = false,
+        Flag = "AutoApplyToggle",
+        Callback = function(state)
+            autoApplyEnabled = state
+
+            if state then
+                autoApplyConnection = RunService.Heartbeat:Connect(function()
+                    if not autoApplyEnabled then return end
+
+                    local availablePoints = player:WaitForChild("Data"):WaitForChild("Points").Value
+                    if availablePoints > 0 and autoPoints > 0 then
+                        for _, statName in ipairs(selectedAutoStats) do
+                            if StatMap[statName] then
+                                local applyAmount = math.min(autoPoints, availablePoints)
+                                QuestEvent:FireServer({
+                                    Type = "StatsAdd",
+                                    C = StatMap[statName],
+                                    Amount = applyAmount
+                                })
+                                availablePoints = availablePoints - applyAmount
+                                if availablePoints <= 0 then break end
+                            end
+                        end
+                    end
+                end)
+            else
+                if autoApplyConnection then
+                    autoApplyConnection:Disconnect()
+                    autoApplyConnection = nil
+                end
+            end
+        end
+    })
+
+    -- =======================
+    -- Reset All Points Section
+    -- =======================
+    StatsTab:CreateSection("Reset")
+    StatsTab:CreateButton({
+        Name = "Reset All Points",
+        Callback = function()
+            QuestEvent:FireServer({
+                Type = "Resett"
+            })
+        end
+    end)
+end
