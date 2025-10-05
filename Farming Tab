@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.3.8
+-- version: 1.3.9
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -54,30 +54,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Configurable sliders
     local behindDistance = 8
     local aboveHeight = 1
-
-    -- =======================
-    -- Weapon Equip Dropdown
-    -- =======================
-    local weapons = {"Weapon", "Style", "Moveset"}
-    local selectedWeapon = "Weapon"
-
-    local weaponDropdown = FarmTab:CreateDropdown({
-        Name = "Select Weapon to Auto-Equip",
-        Options = weapons,
-        CurrentOption = {selectedWeapon},
-        MultipleOptions = false,
-        Flag = "WeaponDropdown",
-        Callback = function(option)
-            selectedWeapon = option[1]
-            -- Immediately equip if farm is active
-            if autoFarmEnabled or multiQuestEnabled then
-                local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                    player.Character.Humanoid:EquipTool(tool)
-                end
-            end
-        end
-    })
 
     -- ======= Helpers =======
     local function IsInQuest()
@@ -225,6 +201,28 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- =======================
     FarmTab:CreateSection("Farming")
 
+    -- Weapon dropdown inside Farming section
+    local weapons = {"Weapon", "Style", "Moveset"}
+    local selectedWeapon = "Weapon"
+
+    local weaponDropdown = FarmTab:CreateDropdown({
+        Name = "Select Weapon to Auto-Equip",
+        Options = weapons,
+        CurrentOption = {selectedWeapon},
+        MultipleOptions = false,
+        Flag = "WeaponDropdown",
+        Callback = function(option)
+            selectedWeapon = option[1]
+            -- Immediately equip if farming is active
+            if autoFarmEnabled or multiQuestEnabled then
+                local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
+                    player.Character.Humanoid:EquipTool(tool)
+                end
+            end
+        end
+    })
+
     -- Normal AutoFarm
     FarmTab:CreateToggle({
         Name = "AutoFarm (Highest Available)",
@@ -233,7 +231,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         Callback = function(state)
             autoFarmEnabled = state
             if state then
-                -- Auto-equip on start
                 local tool = player.Backpack:FindFirstChild(selectedWeapon)
                 if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
                     player.Character.Humanoid:EquipTool(tool)
@@ -278,7 +275,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         Callback = function(state)
             multiQuestEnabled = state
             if state then
-                -- Auto-equip on start
                 local tool = player.Backpack:FindFirstChild(selectedWeapon)
                 if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
                     player.Character.Humanoid:EquipTool(tool)
@@ -379,16 +375,67 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     FarmTab:CreateSection("")
 
     -- =======================
-    -- Auto-equip on respawn
+    -- Respawn Handling
     -- =======================
-    player.CharacterAdded:Connect(function(char)
-        if autoFarmEnabled or multiQuestEnabled then
-            task.wait(1)
+    local function ResumeFarming()
+        if autoFarmEnabled then
             local tool = player.Backpack:FindFirstChild(selectedWeapon)
-            if tool then
-                char:WaitForChild("Humanoid"):EquipTool(tool)
+            if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
+                player.Character.Humanoid:EquipTool(tool)
             end
+            task.spawn(function()
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+                task.wait(0.2)
+                while autoFarmEnabled do
+                    local level = player:WaitForChild("Data").Level.Value
+                    local bestQuest
+                    for _, q in ipairs(quests) do
+                        if level >= q.MinLevel then
+                            bestQuest = q
+                        end
+                    end
+                    if bestQuest then
+                        FarmQuest(bestQuest, "auto")
+                    else
+                        task.wait(1)
+                    end
+                end
+            end)
         end
+        if multiQuestEnabled then
+            local tool = player.Backpack:FindFirstChild(selectedWeapon)
+            if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
+                player.Character.Humanoid:EquipTool(tool)
+            end
+            task.spawn(function()
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+                task.wait(0.1)
+                while multiQuestEnabled do
+                    if #selectedQuests == 0 then
+                        task.wait(0.5)
+                    else
+                        for _, questName in ipairs(selectedQuests) do
+                            if not multiQuestEnabled then break end
+                            local questData
+                            for _, q in ipairs(quests) do
+                                if q.DisplayName == questName then
+                                    questData = q
+                                    break
+                                end
+                            end
+                            if questData then
+                                FarmQuest(questData, "multi")
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    player.CharacterAdded:Connect(function(char)
+        task.wait(1)
+        ResumeFarming()
     end)
 
     return FarmTab
