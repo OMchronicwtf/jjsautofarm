@@ -1,15 +1,18 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.2.2
+-- version: 1.2.3
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Create Farm Tab
     local FarmTab = Window:CreateTab("Farming", "swords")
 
-    -- ======= Top Info Labels =======
-    local currentQuestLabel = FarmTab:CreateLabel("Level: 0 | Current Quest: None")
-    local nextQuestLabel = FarmTab:CreateLabel("Next Quest: None | Unlocks At: 0")
+    -- =======================
+    -- Quest Info Section
+    -- =======================
+    FarmTab:CreateSection("Quest Info")
+    local currentQuestLabel = FarmTab:CreateLabel("Current Level: 0\nCurrent Quest: None")
+    local nextQuestLabel = FarmTab:CreateLabel("Next Quest: None\nUnlocks At: 0")
 
     RunService.Heartbeat:Connect(function()
         local level = player:WaitForChild("Data"):WaitForChild("Level").Value
@@ -24,27 +27,27 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
             end
         end
 
-        -- Current Quest text
+        -- Update Current Quest Label
         if highestQuest then
             currentQuestLabel:Set(string.format(
-                "Level: %d | Current Quest: %s (Lv%d)",
+                "Current Level: %d\nCurrent Quest: %s (Lv%d)",
                 level, highestQuest.DisplayName, highestQuest.MinLevel
             ))
         else
             currentQuestLabel:Set(string.format(
-                "Level: %d | Current Quest: None",
+                "Current Level: %d\nCurrent Quest: None",
                 level
             ))
         end
 
-        -- Next Quest text
+        -- Update Next Quest Label
         if nextQuest then
             nextQuestLabel:Set(string.format(
-                "Next Quest: %s | Unlocks At: Lv%d",
+                "Next Quest: %s\nUnlocks At: Lv%d",
                 nextQuest.DisplayName, nextQuest.MinLevel
             ))
         else
-            nextQuestLabel:Set("Next Quest: None | Unlocks At: Max")
+            nextQuestLabel:Set("Next Quest: None\nUnlocks At: Max")
         end
     end)
 
