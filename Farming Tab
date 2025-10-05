@@ -295,7 +295,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     })
 
     -- Weapon Dropdown (placed between SuperKill and MultiQuest)
-    local weaponOptions = {"Weapon", "Style", "Moveset"}
+    local weaponOptions = {"None", "Weapon", "Style", "Moveset"}
     local selectedWeapon = weaponOptions[1]
     FarmTab:CreateDropdown({
         Name = "Auto-Equip",
