@@ -8,10 +8,7 @@ return function(Window, QuestEvent, player, RunService)
     -- =======================
     -- Label for Available Points + Applied Stats
     -- =======================
-
-    StatsTab:CreateSection("Points Info")
-
-    local pointsLabel = StatsTab:CreateLabel("Available Points: 0 | M: 1 | H: 1 | S: 1 | P: 1")
+    local pointsLabel = StatsTab:CreateLabel("Available Points: 0 | Melee: 1 | Health: 1 | Weapon: 1 | Power: 1")
     RunService.Heartbeat:Connect(function()
         local data = player:WaitForChild("Data")
         local points = data:WaitForChild("Points").Value
@@ -40,6 +37,7 @@ return function(Window, QuestEvent, player, RunService)
     local autoPoints = 0
     local autoApplyEnabled = false
     local autoApplyConnection
+    local autoIndex = 1 -- to track round-robin distribution
 
     -- Input for auto points
     StatsTab:CreateInput({
@@ -62,6 +60,7 @@ return function(Window, QuestEvent, player, RunService)
         Flag = "AutoStatDropdown",
         Callback = function(options)
             selectedAutoStats = options
+            autoIndex = 1 -- reset index when selection changes
         end
     })
 
@@ -77,18 +76,23 @@ return function(Window, QuestEvent, player, RunService)
                     if not autoApplyEnabled then return end
 
                     local availablePoints = player:WaitForChild("Data"):WaitForChild("Points").Value
-                    if availablePoints > 0 and autoPoints > 0 then
-                        for _, statName in ipairs(selectedAutoStats) do
-                            if StatMap[statName] then
-                                local applyAmount = math.min(autoPoints, availablePoints)
-                                QuestEvent:FireServer({
-                                    Type = "StatsAdd",
-                                    C = StatMap[statName],
-                                    Amount = applyAmount
-                                })
-                                availablePoints = availablePoints - applyAmount
-                                if availablePoints <= 0 then break end
-                            end
+                    if availablePoints > 0 and autoPoints > 0 and #selectedAutoStats > 0 then
+                        -- Round-robin apply one stat at a time
+                        local statName = selectedAutoStats[autoIndex]
+                        if StatMap[statName] then
+                            local applyAmount = math.min(autoPoints, availablePoints)
+                            QuestEvent:FireServer({
+                                Type = "StatsAdd",
+                                C = StatMap[statName],
+                                Amount = applyAmount
+                            })
+                            availablePoints = availablePoints - applyAmount
+                        end
+
+                        -- Move to next stat in list
+                        autoIndex = autoIndex + 1
+                        if autoIndex > #selectedAutoStats then
+                            autoIndex = 1
                         end
                     end
                 end)
