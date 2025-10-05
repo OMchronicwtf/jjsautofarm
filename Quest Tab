@@ -1,0 +1,129 @@
+-- =======================
+-- AutoQuest Module (Highest Quest + Specific Quest)
+-- version: 1.0.0
+-- =======================
+
+return function(Window, player, QuestEvent, quests, RunService)
+    -- Create AutoQuest Tab
+    local AutoQuestTab = Window:CreateTab("AutoQuest", "scroll")
+
+    -- =======================
+    -- AutoQuest (Highest Quest)
+    -- =======================
+    local autoQuestEnabled = false
+    local autoQuestLoop
+
+    local function GetHighestQuest()
+        local level = player:WaitForChild("Data"):WaitForChild("Level").Value
+        local selected
+        for _, q in ipairs(quests) do
+            if level >= q.MinLevel then
+                selected = q
+            end
+        end
+        return selected
+    end
+
+    local function IsInQuest()
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
+        return questFrame and questFrame.Visible or false
+    end
+
+    AutoQuestTab:CreateToggle({
+        Name = "Enable AutoQuest (Highest Quest)",
+        CurrentValue = false,
+        Flag = "AutoQuestToggle",
+        Callback = function(state)
+            autoQuestEnabled = state
+
+            if state then
+                QuestEvent:FireServer({Type = "RemoveQuest"})
+                task.wait(0.1)
+
+                autoQuestLoop = RunService.Heartbeat:Connect(function()
+                    if not autoQuestEnabled then return end
+                    if IsInQuest() then return end
+                    local quest = GetHighestQuest()
+                    if quest then
+                        QuestEvent:FireServer({Quest = quest.QuestName, Type = "RepeatQuest"})
+                    end
+                end)
+            else
+                if autoQuestLoop then
+                    autoQuestLoop:Disconnect()
+                    autoQuestLoop = nil
+                end
+                QuestEvent:FireServer({Type = "RemoveQuest"})
+            end
+        end
+    })
+
+    -- =======================
+    -- Auto Start Specific Quest
+    -- =======================
+    AutoQuestTab:CreateSection("Auto Start Specific Quest")
+
+    local selectedQuest = quests[1].DisplayName
+    local autoStartSpecificEnabled = false
+    local specificQuestConnection
+
+    -- Dropdown for quests
+    local questOptions = {}
+    for _, q in ipairs(quests) do
+        table.insert(questOptions, q.DisplayName)
+    end
+
+    AutoQuestTab:CreateDropdown({
+        Name = "Choose Quest",
+        Options = questOptions,
+        CurrentOption = {questOptions[1]},
+        MultipleOptions = false,
+        Flag = "SpecificQuestDropdown",
+        Callback = function(options)
+            selectedQuest = options[1]
+        end
+    })
+
+    -- Toggle to start the specific quest
+    AutoQuestTab:CreateToggle({
+        Name = "Enable Auto Start Quest",
+        CurrentValue = false,
+        Flag = "AutoStartSpecificToggle",
+        Callback = function(state)
+            autoStartSpecificEnabled = state
+
+            if state then
+                QuestEvent:FireServer({Type = "RemoveQuest"})
+
+                specificQuestConnection = RunService.Heartbeat:Connect(function()
+                    if not autoStartSpecificEnabled then return end
+
+                    local questFrame = player.PlayerGui:FindFirstChild("Quest") 
+                        and player.PlayerGui.Quest:FindFirstChild("Mission")
+                    local inQuest = questFrame and questFrame.Visible or false
+
+                    if not inQuest then
+                        local questObj
+                        for _, q in ipairs(quests) do
+                            if q.DisplayName == selectedQuest then
+                                questObj = q
+                                break
+                            end
+                        end
+                        if questObj then
+                            QuestEvent:FireServer({Quest = questObj.QuestName, Type = "RepeatQuest"})
+                        end
+                    end
+                end)
+            else
+                if specificQuestConnection then
+                    specificQuestConnection:Disconnect()
+                    specificQuestConnection = nil
+                end
+                QuestEvent:FireServer({Type = "RemoveQuest"})
+            end
+        end
+    })
+
+    return AutoQuestTab
+end
