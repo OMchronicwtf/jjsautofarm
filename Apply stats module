@@ -7,11 +7,11 @@ return function(StatsTab, QuestEvent, player)
     local selectedStat = statOptions[1]
     local inputPoints = 0
 
-    StatsTab:CreateSection("Manually Add Points")
+    StatsTab:CreateSection("Self Apply Points")
 
     -- Input for points
     StatsTab:CreateInput({
-        Name = "Points to Add",
+        Name = "Amount",
         CurrentValue = "",
         PlaceholderText = "Enter number of points",
         RemoveTextAfterFocusLost = true,
@@ -35,7 +35,7 @@ return function(StatsTab, QuestEvent, player)
 
     -- Add/Confirm button
     StatsTab:CreateButton({
-        Name = "Add Points",
+        Name = "Apply Points",
         Callback = function()
             if inputPoints > 0 and selectedStat and StatMap[selectedStat] then
                 QuestEvent:FireServer({
