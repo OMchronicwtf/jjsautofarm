@@ -1,11 +1,36 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.2.0
+-- version: 1.2.1
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Create Farm Tab
     local FarmTab = Window:CreateTab("Farming", "swords")
+
+    -- ======= Top Info Label =======
+    local infoLabel = FarmTab:CreateLabel("Level: 0 | Highest Quest: None | Next Quest: None")
+
+    RunService.Heartbeat:Connect(function()
+        local level = player:WaitForChild("Data"):WaitForChild("Level").Value
+
+        -- Find highest available quest + next quest
+        local highestQuest, nextQuest
+        for i, q in ipairs(quests) do
+            if level >= q.MinLevel then
+                highestQuest = q
+            elseif not nextQuest then
+                nextQuest = q
+            end
+        end
+
+        local highestText = highestQuest and string.format("%s (Lv%d)", highestQuest.DisplayName, highestQuest.MinLevel) or "None"
+        local nextText = nextQuest and string.format("%s (Lv%d)", nextQuest.DisplayName, nextQuest.MinLevel) or "Max"
+
+        infoLabel:Set(string.format(
+            "Level: %d | Highest Quest: %s | Next Quest: %s",
+            level, highestText, nextText
+        ))
+    end)
 
     -- State for different farms
     local autoFarmEnabled = false
