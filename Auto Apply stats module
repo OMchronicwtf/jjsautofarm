@@ -10,13 +10,13 @@ return function(StatsTab, QuestEvent, player)
     local autoApplyEnabled = false
     local autoApplyConnection
 
-    StatsTab:CreateSection("Auto Apply Stats")
+    StatsTab:CreateSection("Auto Apply Points")
 
     -- Input for points
     StatsTab:CreateInput({
         Name = "Amount",
         CurrentValue = "",
-        PlaceholderText = "Enter number of points",
+        PlaceholderText = "Number of points",
         RemoveTextAfterFocusLost = true,
         Flag = "AutoPointsInput",
         Callback = function(value)
