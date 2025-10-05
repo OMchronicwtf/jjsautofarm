@@ -6,9 +6,7 @@
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Create Farm Tab
     local FarmTab = Window:CreateTab("Farming", "swords")
-    
-    FarmTab:CreateSection("Quest Info")
-    
+
     -- ======= Top Info Labels =======
     local currentQuestLabel = FarmTab:CreateLabel("Level: 0 | Current Quest: None")
     local nextQuestLabel = FarmTab:CreateLabel("Next Quest: None | Unlocks At: 0")
