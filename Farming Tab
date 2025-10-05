@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.2.7
+-- version: 1.2.8
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
