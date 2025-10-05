@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.2.3
+-- version: 1.2.7
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -11,8 +11,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- Quest Info Section
     -- =======================
     FarmTab:CreateSection("Quest Info")
-    local currentQuestLabel = FarmTab:CreateLabel("Current Level: 0\nCurrent Quest: None")
-    local nextQuestLabel = FarmTab:CreateLabel("Next Quest: None\nUnlocks At: 0")
+    local questInfoLabel = FarmTab:CreateLabel("Current Level: 0\nCurrent Quest: None\nNext Quest: None")
 
     RunService.Heartbeat:Connect(function()
         local level = player:WaitForChild("Data"):WaitForChild("Level").Value
@@ -27,28 +26,16 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
             end
         end
 
-        -- Update Current Quest Label
-        if highestQuest then
-            currentQuestLabel:Set(string.format(
-                "Current Level: %d\nCurrent Quest: %s (Lv%d)",
-                level, highestQuest.DisplayName, highestQuest.MinLevel
-            ))
-        else
-            currentQuestLabel:Set(string.format(
-                "Current Level: %d\nCurrent Quest: None",
-                level
-            ))
-        end
+        -- Build label text
+        local currentQuestText = highestQuest and string.format("%s (Lv%d)", highestQuest.DisplayName, highestQuest.MinLevel) or "None"
+        local nextQuestText = nextQuest and string.format("%s (Lv%d)", nextQuest.DisplayName, nextQuest.MinLevel) or "Max"
 
-        -- Update Next Quest Label
-        if nextQuest then
-            nextQuestLabel:Set(string.format(
-                "Next Quest: %s\nUnlocks At: Lv%d",
-                nextQuest.DisplayName, nextQuest.MinLevel
-            ))
-        else
-            nextQuestLabel:Set("Next Quest: None\nUnlocks At: Max")
-        end
+        questInfoLabel:Set(string.format(
+            "Current Level: %d\nCurrent Quest: %s\nNext Quest: %s",
+            level,
+            currentQuestText,
+            nextQuestText
+        ))
     end)
 
     -- State for different farms
