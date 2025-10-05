@@ -22,7 +22,8 @@ return function(Window, QuestEvent, player, RunService)
 
         pointsLabel:Set(string.format(
             "Available Points: %d\nMelee: %d | Health: %d | Weapon: %d | Power: %d",
-            points, melee, health, weapon, power
+            points,
+            melee, health, weapon, power
         ))
     end)
 
