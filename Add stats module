@@ -7,7 +7,7 @@ return function(StatsTab, QuestEvent, player)
     local selectedStat = statOptions[1]
     local inputPoints = 0
 
-StatsTab:CreateSection("Manually Add Points")
+    StatsTab:CreateSection("Manually Add Points")
 
     -- Input for points
     StatsTab:CreateInput({
