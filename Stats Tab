@@ -21,7 +21,7 @@ return function(Window, QuestEvent, player, RunService)
         local power = (data:GetAttribute("P") or 0) + 1
 
         pointsLabel:Set(string.format(
-            "Available Points: %d | Melee: %d | Health: %d | Weapon: %d | Power: %d",
+            "Available Points: %d\Melee: %d | Health: %d | Weapon: %d | Power: %d",
             points, melee, health, weapon, power
         ))
     end)
