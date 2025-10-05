@@ -2,7 +2,7 @@ return function(Window, player, RunService)
     -- Create the Info tab inside Rayfield
     local Tab = Window:CreateTab("Info", "info") -- second param is a Lucide icon, e.g., "info"
 
-    InfoTab:CreateSection("Info")
+    local Section = Tab:CreateSection("Info")
     
     -- UI Elements
     local InfoParagraph = Tab:CreateParagraph({
