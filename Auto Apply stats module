@@ -1,0 +1,75 @@
+-- =======================
+-- Auto Apply Stats Module
+-- =======================
+return function(StatsTab, QuestEvent, player)
+    local StatMap = {Melee="M", Health="H", Weapon="S", Power="P"}
+    local statOptions = {"Melee", "Health", "Weapon", "Power"}
+
+    local selectedAutoStats = {statOptions[1]} -- table of selected stats
+    local autoPoints = 0
+    local autoApplyEnabled = false
+    local autoApplyConnection
+
+    StatsTab:CreateSection("Auto Apply Stats")
+
+    -- Input for points
+    StatsTab:CreateInput({
+        Name = "Amount",
+        CurrentValue = "",
+        PlaceholderText = "Enter number of points",
+        RemoveTextAfterFocusLost = true,
+        Flag = "AutoPointsInput",
+        Callback = function(value)
+            autoPoints = tonumber(value) or 0
+        end
+    })
+
+    -- Multi-select Dropdown to select stats
+    StatsTab:CreateDropdown({
+        Name = "Select Stat/s",
+        Options = statOptions,
+        CurrentOption = {statOptions[1]},
+        MultipleOptions = true,
+        Flag = "AutoStatDropdown",
+        Callback = function(options)
+            selectedAutoStats = options -- table of all selected stats
+        end
+    })
+
+    -- Toggle to enable/disable auto apply
+    StatsTab:CreateToggle({
+        Name = "Auto Apply",
+        CurrentValue = false,
+        Flag = "AutoApplyToggle",
+        Callback = function(state)
+            autoApplyEnabled = state
+
+            if state then
+                autoApplyConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                    if not autoApplyEnabled then return end
+
+                    local availablePoints = player:WaitForChild("Data"):WaitForChild("Points").Value
+                    if availablePoints > 0 and autoPoints > 0 then
+                        for _, statName in ipairs(selectedAutoStats) do
+                            if StatMap[statName] then
+                                local applyAmount = math.min(autoPoints, availablePoints)
+                                QuestEvent:FireServer({
+                                    Type = "StatsAdd",
+                                    C = StatMap[statName],
+                                    Amount = applyAmount
+                                })
+                                availablePoints = availablePoints - applyAmount
+                                if availablePoints <= 0 then break end
+                            end
+                        end
+                    end
+                end)
+            else
+                if autoApplyConnection then
+                    autoApplyConnection:Disconnect()
+                    autoApplyConnection = nil
+                end
+            end
+        end
+    })
+end
