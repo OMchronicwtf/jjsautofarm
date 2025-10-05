@@ -298,7 +298,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     local weaponOptions = {"Weapon", "Style", "Moveset"}
     local selectedWeapon = weaponOptions[1]
     FarmTab:CreateDropdown({
-        Name = "Select Weapon to Equip",
+        Name = "Auto-Equip",
         Options = weaponOptions,
         CurrentOption = {selectedWeapon},
         MultipleOptions = false,
