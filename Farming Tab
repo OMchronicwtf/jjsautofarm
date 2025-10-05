@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.3.5
+-- version: 1.3.6
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -339,46 +339,37 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         end
     })
 
-    -- Respawn handling to continue farming
-    player.CharacterAdded:Connect(function(char)
-        local hrp = char:WaitForChild("HumanoidRootPart")
-
-        -- Re-lock AutoFarm if enabled
-        if autoFarmEnabled then
-            if autoFarmZoneLock then autoFarmZoneLock:Disconnect() end
-            autoFarmZoneLock = RunService.Heartbeat:Connect(function()
+    -- =======================
+    -- Respawn Handling
+    -- =======================
+    local function ResumeFarming()
+        task.spawn(function()
+            if autoFarmEnabled then
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+                task.wait(0.2)
                 local level = player:WaitForChild("Data").Level.Value
                 local bestQuest
                 for _, q in ipairs(quests) do
                     if level >= q.MinLevel then bestQuest = q end
                 end
-                if bestQuest then
-                    local zone = GetZoneForLevel(bestQuest.MinLevel)
-                    if zone then
-                        hrp.CFrame = zone.CFrame
-                    end
-                end
-            end)
-        end
-
-        -- Re-lock MultiQuest if enabled
-        if multiQuestEnabled then
-            if multiFarmZoneLock then multiFarmZoneLock:Disconnect() end
-            multiFarmZoneLock = RunService.Heartbeat:Connect(function()
-                if #selectedQuests > 0 then
-                    for _, questName in ipairs(selectedQuests) do
-                        for _, q in ipairs(quests) do
-                            if q.DisplayName == questName then
-                                local zone = GetZoneForLevel(q.MinLevel)
-                                if zone then
-                                    hrp.CFrame = zone.CFrame
-                                end
-                            end
+                if bestQuest then FarmQuest(bestQuest, "auto") end
+            end
+            if multiQuestEnabled and #selectedQuests > 0 then
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+                task.wait(0.2)
+                for _, questName in ipairs(selectedQuests) do
+                    for _, q in ipairs(quests) do
+                        if q.DisplayName == questName then
+                            FarmQuest(q, "multi")
                         end
                     end
                 end
-            end)
-        end
+            end
+        end)
+    end
+
+    player.CharacterAdded:Connect(function()
+        ResumeFarming()
     end)
 
     -- Spacer Section for clean UI
