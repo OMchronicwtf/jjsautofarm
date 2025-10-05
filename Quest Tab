@@ -125,6 +125,6 @@ return function(Window, player, QuestEvent, quests, RunService)
             selectedQuest = options[1]
         end
     })
-
+    AutoQuestTab:CreateSection()
     return AutoQuestTab
 end
