@@ -1,0 +1,54 @@
+-- =======================
+-- Main Rayfield Script
+-- =======================
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+    Name = "Jututsu Seas",
+    LoadingTitle = "AutoQuest & MultiFarm",
+    LoadingSubtitle = "by Chronic",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "CJJSA",
+        FileName = "Config"
+    },
+    Discord = { Enabled = false },
+    KeySystem = false
+})
+
+-- Player & Services
+local player = game.Players.LocalPlayer
+local QuestEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Compliments
+local RunService = game:GetService("RunService")
+
+-- Quest & Teleports
+local quests = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Quest%20Table"))()
+local teleportZones = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Teleport%20Zones%20Table"))()
+
+-- =======================
+-- AutoQuest Tab
+-- =======================
+local AutoQuestModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Quest%20Tab"))()
+AutoQuestModule(Window, player, QuestEvent, quests, RunService)
+
+-- =======================
+-- Farming Tab (Normal + MultiQuest + SuperKill)
+-- =======================
+local FarmModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Farming%20Tab"))()
+local FarmTab = FarmModule(Window, player, QuestEvent, quests, teleportZones, RunService)
+
+-- =======================
+-- Auto Stats Tab
+-- =======================
+local StatsTabModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Stats%20Tab"))()
+StatsTabModule(Window, QuestEvent, player, RunService)
+
+-- =======================
+-- Info Tab
+-- =======================
+local InfoTabModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Info%20Tab"))()
+InfoTabModule(Window, player, RunService)
+
+-- =======================
+-- Load saved configuration
+-- =======================
+Rayfield:LoadConfiguration()
