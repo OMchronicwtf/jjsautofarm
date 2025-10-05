@@ -293,7 +293,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
             heightSlider:Set(aboveHeight)
         end
     })
-    FarmTab:CreateSection()
+    
     
     return FarmTab
 end
