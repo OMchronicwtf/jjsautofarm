@@ -166,5 +166,4 @@ return function(Window, QuestEvent, player, RunService)
             })
         end
     })
-    StatsTab:CreateSection()
 end
