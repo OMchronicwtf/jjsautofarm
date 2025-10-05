@@ -1,0 +1,47 @@
+-- StatsAddModule.lua
+return function(StatsTab, QuestEvent, player)
+    -- Map dropdown options to game stat codes
+    local StatMap = {Melee="M", Health="H", Weapon="S", Power="P"}
+    local statOptions = {"Melee", "Health", "Weapon", "Power"}
+
+    local selectedStat = statOptions[1]
+    local inputPoints = 0
+
+    -- Input for points
+    StatsTab:CreateInput({
+        Name = "Points to Add",
+        CurrentValue = "",
+        PlaceholderText = "Enter number of points",
+        RemoveTextAfterFocusLost = true,
+        Flag = "PointsInput",
+        Callback = function(value)
+            inputPoints = tonumber(value) or 0
+        end
+    })
+
+    -- Dropdown to select stat
+    StatsTab:CreateDropdown({
+        Name = "Select Stat",
+        Options = statOptions,
+        CurrentOption = {statOptions[1]},
+        MultipleOptions = false,
+        Flag = "StatDropdown",
+        Callback = function(option)
+            selectedStat = option[1]
+        end
+    })
+
+    -- Add/Confirm button
+    StatsTab:CreateButton({
+        Name = "Add Points",
+        Callback = function()
+            if inputPoints > 0 and selectedStat and StatMap[selectedStat] then
+                QuestEvent:FireServer({
+                    Type = "StatsAdd",
+                    C = StatMap[selectedStat],
+                    Amount = inputPoints
+                })
+            end
+        end
+    })
+end
