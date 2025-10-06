@@ -1,6 +1,6 @@
 -- =======================
 -- Main Tab Module
--- version: 1.0.5
+-- version: 1.0.7
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
@@ -178,6 +178,20 @@ return function(Window, player, QuestEvent, quests, RunService)
         serverEvent:InvokeServer({ Arg = "StoreFruit" })
     end
 
+    -- Function to equip fruit from backpack and store it
+    local function EquipAndStoreFruit()
+        local backpack = player:FindFirstChild("Backpack")
+        local character = player.Character
+        if not backpack or not character then return end
+
+        local fruit = backpack:FindFirstChild("Fruit")
+        if fruit then
+            character.Humanoid:EquipTool(fruit)
+            task.wait(0.5) -- wait to ensure it's equipped
+            StoreFruit()
+        end
+    end
+
     -- Toggle for AutoRollFruit
     MainTab:CreateToggle({
         Name = "AutoRollFruit",
@@ -189,25 +203,26 @@ return function(Window, player, QuestEvent, quests, RunService)
             if state then
                 -- Run immediately
                 RollFruit()
+                task.wait(1)
+                EquipAndStoreFruit()
 
                 -- Start loop
                 autoRollThread = task.spawn(function()
                     while autoRollEnabled do
-                        -- Check for fruit in backpack
-                        local fruit = player.Backpack:FindFirstChild("Fruit")
-                        if fruit then
-                            player.Character.Humanoid:EquipTool(fruit)
-                            task.wait(0.5)
-                            StoreFruit()
-                        end
+                        -- Check backpack and store fruit if available
+                        EquipAndStoreFruit()
 
                         -- Wait until next interval (convert min → sec)
                         for i = 1, rollCooldown * 60 do
                             if not autoRollEnabled then break end
                             task.wait(1)
                         end
+
+                        -- Roll again if toggle is still on
                         if autoRollEnabled then
                             RollFruit()
+                            task.wait(1)
+                            EquipAndStoreFruit()
                         end
                     end
                 end)
