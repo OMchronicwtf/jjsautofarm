@@ -1,54 +1,219 @@
 -- =======================
--- Main Rayfield Script
+-- Quest Module (Organized)
+-- version: 1.0.3
 -- =======================
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({
-    Name = "Jututsu Seas",
-    LoadingTitle = "AutoQuest & MultiFarm",
-    LoadingSubtitle = "by Chronic",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "CJJSA",
-        FileName = "Config"
-    },
-    Discord = { Enabled = false },
-    KeySystem = false
-})
 
--- Player & Services
-local player = game.Players.LocalPlayer
-local QuestEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Compliments
-local RunService = game:GetService("RunService")
+return function(Window, player, QuestEvent, quests, RunService)
+    -- Create Main Tab
+    local MainTab = Window:CreateTab("Main", "scroll")
 
--- Quest & Teleports
-local quests = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Quest%20Table"))()
-local teleportZones = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Teleport%20Zones%20Table"))()
+    -- =======================
+    -- Quest Info Section
+    -- =======================
+    MainTab:CreateSection("Quest Info")
 
--- =======================
--- Main Tab (Quests)
--- =======================
-local MainModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Main%20Tab"))()
-local MainTab = MainModule(Window, player, QuestEvent, quests, RunService)
+    local questInfoLabel = MainTab:CreateLabel("Current Level: 0\nCurrent Quest: None | Next Quest: None")
 
--- =======================
--- Farming Tab (Normal + MultiQuest + SuperKill)
--- =======================
-local FarmModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Farming%20Tab"))()
-local FarmTab = FarmModule(Window, player, QuestEvent, quests, teleportZones, RunService)
+    RunService.Heartbeat:Connect(function()
+        local level = player:WaitForChild("Data"):WaitForChild("Level").Value
 
--- =======================
--- Auto Stats Tab
--- =======================
-local StatsTabModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Stats%20Tab"))()
-StatsTabModule(Window, QuestEvent, player, RunService)
+        -- Sort quests by MinLevel ascending
+        table.sort(quests, function(a, b)
+            return a.MinLevel < b.MinLevel
+        end)
 
--- =======================
--- Info Tab
--- =======================
-local InfoTabModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Info%20Tab"))()
-InfoTabModule(Window, player, RunService)
+        local highestQuest, nextQuest
+        for _, q in ipairs(quests) do
+            if level >= q.MinLevel then
+                highestQuest = q
+            elseif not nextQuest then
+                nextQuest = q
+            end
+        end
 
--- =======================
--- Load saved configuration
--- =======================
-Rayfield:LoadConfiguration()
+        local currentQuestText = highestQuest and highestQuest.DisplayName or "None"
+        local nextQuestText = nextQuest and nextQuest.DisplayName or "Max"
+
+        questInfoLabel:Set(string.format(
+            "Current Level: %d\nCurrent Quest: %s | Next Quest: %s",
+            level,
+            currentQuestText,
+            nextQuestText
+        ))
+    end)
+
+    -- =======================
+    -- Auto Quests Section
+    -- =======================
+    MainTab:CreateSection("Auto Quests")
+
+    local autoQuestEnabled = false
+    local autoQuestLoop
+
+    local function GetHighestQuest()
+        local level = player:WaitForChild("Data"):WaitForChild("Level").Value
+        local selected
+        for _, q in ipairs(quests) do
+            if level >= q.MinLevel then
+                selected = q
+            end
+        end
+        return selected
+    end
+
+    local function IsInQuest()
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
+        return questFrame and questFrame.Visible or false
+    end
+
+    MainTab:CreateToggle({
+        Name = "AutoQuest (Highest Available)",
+        CurrentValue = false,
+        Flag = "AutoQuestToggle",
+        Callback = function(state)
+            autoQuestEnabled = state
+
+            if state then
+                QuestEvent:FireServer({Type = "RemoveQuest"})
+                task.wait(0.1)
+
+                autoQuestLoop = RunService.Heartbeat:Connect(function()
+                    if not autoQuestEnabled then return end
+                    if IsInQuest() then return end
+                    local quest = GetHighestQuest()
+                    if quest then
+                        QuestEvent:FireServer({Quest = quest.QuestName, Type = "RepeatQuest"})
+                    end
+                end)
+            else
+                if autoQuestLoop then
+                    autoQuestLoop:Disconnect()
+                    autoQuestLoop = nil
+                end
+                QuestEvent:FireServer({Type = "RemoveQuest"})
+            end
+        end
+    })
+
+    -- =======================
+    -- Auto Start Specific Quest
+    -- =======================
+    local selectedQuest = quests[1].DisplayName
+    local autoStartSpecificEnabled = false
+    local specificQuestConnection
+
+    MainTab:CreateToggle({
+        Name = "Start Specific Quest",
+        CurrentValue = false,
+        Flag = "AutoStartSpecificToggle",
+        Callback = function(state)
+            autoStartSpecificEnabled = state
+
+            if state then
+                QuestEvent:FireServer({Type = "RemoveQuest"})
+
+                specificQuestConnection = RunService.Heartbeat:Connect(function()
+                    if not autoStartSpecificEnabled then return end
+
+                    local questFrame = player.PlayerGui:FindFirstChild("Quest") 
+                        and player.PlayerGui.Quest:FindFirstChild("Mission")
+                    local inQuest = questFrame and questFrame.Visible or false
+
+                    if not inQuest then
+                        local questObj
+                        for _, q in ipairs(quests) do
+                            if q.DisplayName == selectedQuest then
+                                questObj = q
+                                break
+                            end
+                        end
+                        if questObj then
+                            QuestEvent:FireServer({Quest = questObj.QuestName, Type = "RepeatQuest"})
+                        end
+                    end
+                end)
+            else
+                if specificQuestConnection then
+                    specificQuestConnection:Disconnect()
+                    specificQuestConnection = nil
+                end
+                QuestEvent:FireServer({Type = "RemoveQuest"})
+            end
+        end
+    })
+
+    local questOptions = {}
+    for _, q in ipairs(quests) do
+        table.insert(questOptions, q.DisplayName)
+    end
+
+    MainTab:CreateDropdown({
+        Name = "Choose Quest",
+        Options = questOptions,
+        CurrentOption = {questOptions[1]},
+        MultipleOptions = false,
+        Flag = "SpecificQuestDropdown",
+        Callback = function(options)
+            selectedQuest = options[1]
+        end
+    })
+
+    -- =======================
+    -- Misc Section
+    -- =======================
+    MainTab:CreateSection("Misc")
+
+    local autoRollEnabled = false
+    local autoRollThread
+    local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
+
+    local function RollFruit()
+        serverEvent:InvokeServer({ Arg = "MovesetSpin" })
+    end
+
+    local function StoreFruit()
+        serverEvent:InvokeServer({ Arg = "StoreFruit" })
+    end
+
+    MainTab:CreateToggle({
+        Name = "AutoRollFruit",
+        CurrentValue = false,
+        Flag = "AutoRollFruitToggle",
+        Callback = function(state)
+            autoRollEnabled = state
+
+            if state then
+                -- Run immediately
+                RollFruit()
+
+                -- Start loop
+                autoRollThread = task.spawn(function()
+                    while autoRollEnabled do
+                        -- Check for fruit in backpack
+                        local fruit = player.Backpack:FindFirstChild("Fruit")
+                        if fruit then
+                            -- Equip
+                            player.Character.Humanoid:EquipTool(fruit)
+                            task.wait(0.5)
+                            -- Store
+                            StoreFruit()
+                        end
+
+                        -- Wait 30 minutes before rolling again
+                        for i = 1, 1800 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
+                        end
+                        if autoRollEnabled then
+                            RollFruit()
+                        end
+                    end
+                end)
+            else
+                autoRollEnabled = false
+            end
+        end
+    })
+
+    return MainTab
+end
