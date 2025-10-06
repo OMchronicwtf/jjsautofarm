@@ -25,10 +25,10 @@ local quests = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchro
 local teleportZones = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Teleport%20Zones%20Table"))()
 
 -- =======================
--- AutoQuest Tab
+-- Main Tab (Quests)
 -- =======================
 local MainModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Main%20Tab"))()
-AutoQuestModule(Window, player, QuestEvent, quests, RunService)
+local MainTab = MainModule(Window, player, QuestEvent, quests, RunService)
 
 -- =======================
 -- Farming Tab (Normal + MultiQuest + SuperKill)
