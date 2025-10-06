@@ -1,6 +1,6 @@
 -- =======================
 -- Main Tab Module
--- version: 1.0.8
+-- version: 1.0.9
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
@@ -11,7 +11,6 @@ return function(Window, player, QuestEvent, quests, RunService)
     -- Quest Info Section
     -- =======================
     MainTab:CreateSection("Quest Info")
-
     local questInfoLabel = MainTab:CreateLabel("Current Level: 0\nCurrent Quest: None | Next Quest: None")
 
     RunService.Heartbeat:Connect(function()
@@ -43,7 +42,7 @@ return function(Window, player, QuestEvent, quests, RunService)
     end)
 
     -- =======================
-    -- Auto Quests Section
+    -- AutoQuest Section
     -- =======================
     MainTab:CreateSection("Auto Quests")
 
@@ -62,7 +61,7 @@ return function(Window, player, QuestEvent, quests, RunService)
     end
 
     local function IsInQuest()
-        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui:Quest:FindFirstChild("Mission")
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
         return questFrame and questFrame.Visible or false
     end
 
@@ -116,7 +115,7 @@ return function(Window, player, QuestEvent, quests, RunService)
                     if not autoStartSpecificEnabled then return end
 
                     local questFrame = player.PlayerGui:FindFirstChild("Quest") 
-                        and player.PlayerGui:Quest:FindFirstChild("Mission")
+                        and player.PlayerGui.Quest:FindFirstChild("Mission")
                     local inQuest = questFrame and questFrame.Visible or false
 
                     if not inQuest then
@@ -169,7 +168,7 @@ return function(Window, player, QuestEvent, quests, RunService)
     local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
 
     -- Default 30 minutes
-    local rollCooldown = 30 -- in minutes
+    local rollCooldown = 30
 
     local function RollFruit()
         serverEvent:InvokeServer({ Arg = "MovesetSpin" })
@@ -179,7 +178,6 @@ return function(Window, player, QuestEvent, quests, RunService)
         serverEvent:InvokeServer({ Arg = "StoreFruit" })
     end
 
-    -- Equip and store fruit if it exists in Backpack
     local function EquipAndStoreFruit()
         local backpack = player:FindFirstChild("Backpack")
         local character = player.Character
@@ -188,12 +186,11 @@ return function(Window, player, QuestEvent, quests, RunService)
         local fruit = backpack:FindFirstChild("Fruit")
         if fruit then
             character.Humanoid:EquipTool(fruit)
-            task.wait(0.5) -- ensure equipped
+            task.wait(0.5)
             StoreFruit()
         end
     end
 
-    -- Toggle for AutoRollFruit
     MainTab:CreateToggle({
         Name = "AutoRollFruit",
         CurrentValue = false,
@@ -202,7 +199,6 @@ return function(Window, player, QuestEvent, quests, RunService)
             autoRollEnabled = state
 
             if state then
-                -- Initial roll
                 RollFruit()
                 task.wait(1)
                 EquipAndStoreFruit()
@@ -232,18 +228,17 @@ return function(Window, player, QuestEvent, quests, RunService)
                         end
                     end
                 end)
-
             else
                 autoRollEnabled = false
             end
         end
     })
 
-    -- Slider for cooldown (below toggle)
+    -- Slider below toggle
     MainTab:CreateSlider({
         Name = "AutoRoll Interval",
-        Range = {10, 60}, -- 10 minutes to 1 hour
-        Increment = 1, -- step 1 minute
+        Range = {10, 60},
+        Increment = 1,
         Suffix = "min",
         CurrentValue = 30,
         Flag = "AutoRollInterval",
