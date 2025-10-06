@@ -1,6 +1,6 @@
 -- =======================
 -- Quest Module (Organized)
--- version: 1.0.2
+-- version: 1.0.3
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
@@ -23,7 +23,7 @@ return function(Window, player, QuestEvent, quests, RunService)
         end)
 
         local highestQuest, nextQuest
-        for i, q in ipairs(quests) do
+        for _, q in ipairs(quests) do
             if level >= q.MinLevel then
                 highestQuest = q
             elseif not nextQuest then
@@ -47,7 +47,6 @@ return function(Window, player, QuestEvent, quests, RunService)
     -- =======================
     MainTab:CreateSection("Auto Quests")
 
-    -- AutoQuest (Highest Quest)
     local autoQuestEnabled = false
     local autoQuestLoop
 
@@ -103,7 +102,6 @@ return function(Window, player, QuestEvent, quests, RunService)
     local autoStartSpecificEnabled = false
     local specificQuestConnection
 
-    -- Toggle first
     MainTab:CreateToggle({
         Name = "Start Specific Quest",
         CurrentValue = false,
@@ -144,7 +142,6 @@ return function(Window, player, QuestEvent, quests, RunService)
         end
     })
 
-    -- Dropdown second
     local questOptions = {}
     for _, q in ipairs(quests) do
         table.insert(questOptions, q.DisplayName)
@@ -158,6 +155,63 @@ return function(Window, player, QuestEvent, quests, RunService)
         Flag = "SpecificQuestDropdown",
         Callback = function(options)
             selectedQuest = options[1]
+        end
+    })
+
+    -- =======================
+    -- Misc Section
+    -- =======================
+    MainTab:CreateSection("Misc")
+
+    local autoRollEnabled = false
+    local autoRollThread
+    local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
+
+    local function RollFruit()
+        serverEvent:InvokeServer({ Arg = "MovesetSpin" })
+    end
+
+    local function StoreFruit()
+        serverEvent:InvokeServer({ Arg = "StoreFruit" })
+    end
+
+    MainTab:CreateToggle({
+        Name = "AutoRollFruit",
+        CurrentValue = false,
+        Flag = "AutoRollFruitToggle",
+        Callback = function(state)
+            autoRollEnabled = state
+
+            if state then
+                -- Run immediately
+                RollFruit()
+
+                -- Start loop
+                autoRollThread = task.spawn(function()
+                    while autoRollEnabled do
+                        -- Check for fruit in backpack
+                        local fruit = player.Backpack:FindFirstChild("Fruit")
+                        if fruit then
+                            -- Equip
+                            player.Character.Humanoid:EquipTool(fruit)
+                            task.wait(0.5)
+                            -- Store
+                            StoreFruit()
+                        end
+
+                        -- Wait 30 minutes before rolling again
+                        for i = 1, 1800 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
+                        end
+                        if autoRollEnabled then
+                            RollFruit()
+                        end
+                    end
+                end)
+            else
+                autoRollEnabled = false
+            end
         end
     })
 
