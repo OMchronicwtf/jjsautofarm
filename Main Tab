@@ -1,6 +1,6 @@
 -- =======================
 -- Main Tab Module
--- version: 1.0.7
+-- version: 1.0.8
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
@@ -62,7 +62,7 @@ return function(Window, player, QuestEvent, quests, RunService)
     end
 
     local function IsInQuest()
-        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui:Quest:FindFirstChild("Mission")
         return questFrame and questFrame.Visible or false
     end
 
@@ -116,7 +116,7 @@ return function(Window, player, QuestEvent, quests, RunService)
                     if not autoStartSpecificEnabled then return end
 
                     local questFrame = player.PlayerGui:FindFirstChild("Quest") 
-                        and player.PlayerGui.Quest:FindFirstChild("Mission")
+                        and player.PlayerGui:Quest:FindFirstChild("Mission")
                     local inQuest = questFrame and questFrame.Visible or false
 
                     if not inQuest then
@@ -165,6 +165,7 @@ return function(Window, player, QuestEvent, quests, RunService)
 
     local autoRollEnabled = false
     local autoRollThread
+    local inventoryCheckThread
     local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
 
     -- Default 30 minutes
@@ -178,7 +179,7 @@ return function(Window, player, QuestEvent, quests, RunService)
         serverEvent:InvokeServer({ Arg = "StoreFruit" })
     end
 
-    -- Function to equip fruit from backpack and store it
+    -- Equip and store fruit if it exists in Backpack
     local function EquipAndStoreFruit()
         local backpack = player:FindFirstChild("Backpack")
         local character = player.Character
@@ -187,7 +188,7 @@ return function(Window, player, QuestEvent, quests, RunService)
         local fruit = backpack:FindFirstChild("Fruit")
         if fruit then
             character.Humanoid:EquipTool(fruit)
-            task.wait(0.5) -- wait to ensure it's equipped
+            task.wait(0.5) -- ensure equipped
             StoreFruit()
         end
     end
@@ -201,24 +202,18 @@ return function(Window, player, QuestEvent, quests, RunService)
             autoRollEnabled = state
 
             if state then
-                -- Run immediately
+                -- Initial roll
                 RollFruit()
                 task.wait(1)
                 EquipAndStoreFruit()
 
-                -- Start loop
+                -- Roll loop
                 autoRollThread = task.spawn(function()
                     while autoRollEnabled do
-                        -- Check backpack and store fruit if available
-                        EquipAndStoreFruit()
-
-                        -- Wait until next interval (convert min → sec)
                         for i = 1, rollCooldown * 60 do
                             if not autoRollEnabled then break end
                             task.wait(1)
                         end
-
-                        -- Roll again if toggle is still on
                         if autoRollEnabled then
                             RollFruit()
                             task.wait(1)
@@ -226,6 +221,18 @@ return function(Window, player, QuestEvent, quests, RunService)
                         end
                     end
                 end)
+
+                -- Inventory check every 5 seconds
+                inventoryCheckThread = task.spawn(function()
+                    while autoRollEnabled do
+                        EquipAndStoreFruit()
+                        for i = 1, 5 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
+                        end
+                    end
+                end)
+
             else
                 autoRollEnabled = false
             end
