@@ -27,7 +27,7 @@ local teleportZones = loadstring(game:HttpGet("https://raw.githubusercontent.com
 -- =======================
 -- AutoQuest Tab
 -- =======================
-local AutoQuestModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Quest%20Tab"))()
+local MainModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Main%20Tab"))()
 AutoQuestModule(Window, player, QuestEvent, quests, RunService)
 
 -- =======================
