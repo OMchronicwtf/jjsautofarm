@@ -1,6 +1,6 @@
 -- =======================
--- Quest Module (Organized)
--- version: 1.0.3
+-- Main Tab Module
+-- version: 1.0.4
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
@@ -167,6 +167,9 @@ return function(Window, player, QuestEvent, quests, RunService)
     local autoRollThread
     local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
 
+    -- Default 30 minutes
+    local rollCooldown = 30 -- in minutes
+
     local function RollFruit()
         serverEvent:InvokeServer({ Arg = "MovesetSpin" })
     end
@@ -175,6 +178,20 @@ return function(Window, player, QuestEvent, quests, RunService)
         serverEvent:InvokeServer({ Arg = "StoreFruit" })
     end
 
+    -- Slider for cooldown
+    MainTab:CreateSlider({
+        Name = "AutoRoll Interval",
+        Range = {10, 60}, -- 10 minutes to 1 hour
+        Increment = 1, -- step 1 minute
+        Suffix = "min",
+        CurrentValue = 30,
+        Flag = "AutoRollInterval",
+        Callback = function(value)
+            rollCooldown = value
+        end
+    })
+
+    -- Toggle for AutoRollFruit
     MainTab:CreateToggle({
         Name = "AutoRollFruit",
         CurrentValue = false,
@@ -192,15 +209,13 @@ return function(Window, player, QuestEvent, quests, RunService)
                         -- Check for fruit in backpack
                         local fruit = player.Backpack:FindFirstChild("Fruit")
                         if fruit then
-                            -- Equip
                             player.Character.Humanoid:EquipTool(fruit)
                             task.wait(0.5)
-                            -- Store
                             StoreFruit()
                         end
 
-                        -- Wait 30 minutes before rolling again
-                        for i = 1, 1800 do
+                        -- Wait until next interval (convert min → sec)
+                        for i = 1, rollCooldown * 60 do
                             if not autoRollEnabled then break end
                             task.wait(1)
                         end
