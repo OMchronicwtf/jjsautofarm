@@ -1,6 +1,6 @@
 -- =======================
 -- Main Tab Module
--- version: 1.0.4
+-- version: 1.0.5
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
@@ -178,19 +178,6 @@ return function(Window, player, QuestEvent, quests, RunService)
         serverEvent:InvokeServer({ Arg = "StoreFruit" })
     end
 
-    -- Slider for cooldown
-    MainTab:CreateSlider({
-        Name = "AutoRoll Interval",
-        Range = {10, 60}, -- 10 minutes to 1 hour
-        Increment = 1, -- step 1 minute
-        Suffix = "min",
-        CurrentValue = 30,
-        Flag = "AutoRollInterval",
-        Callback = function(value)
-            rollCooldown = value
-        end
-    })
-
     -- Toggle for AutoRollFruit
     MainTab:CreateToggle({
         Name = "AutoRollFruit",
@@ -227,6 +214,19 @@ return function(Window, player, QuestEvent, quests, RunService)
             else
                 autoRollEnabled = false
             end
+        end
+    })
+
+    -- Slider for cooldown (below toggle)
+    MainTab:CreateSlider({
+        Name = "AutoRoll Interval",
+        Range = {10, 60}, -- 10 minutes to 1 hour
+        Increment = 1, -- step 1 minute
+        Suffix = "min",
+        CurrentValue = 30,
+        Flag = "AutoRollInterval",
+        Callback = function(value)
+            rollCooldown = value
         end
     })
 
