@@ -1,18 +1,53 @@
 -- =======================
--- AutoQuest Module (Organized)
--- version: 1.0.1
+-- Quest Module (Organized)
+-- version: 1.0.2
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
-    -- Create AutoQuest Tab
-    local AutoQuestTab = Window:CreateTab("AutoQuest", "scroll")
-
-    -- Create section
-    AutoQuestTab:CreateSection("Auto Quests")
+    -- Create Main Tab
+    local MainTab = Window:CreateTab("Main", "scroll")
 
     -- =======================
+    -- Quest Info Section
+    -- =======================
+    MainTab:CreateSection("Quest Info")
+
+    local questInfoLabel = MainTab:CreateLabel("Current Level: 0\nCurrent Quest: None | Next Quest: None")
+
+    RunService.Heartbeat:Connect(function()
+        local level = player:WaitForChild("Data"):WaitForChild("Level").Value
+
+        -- Sort quests by MinLevel ascending
+        table.sort(quests, function(a, b)
+            return a.MinLevel < b.MinLevel
+        end)
+
+        local highestQuest, nextQuest
+        for i, q in ipairs(quests) do
+            if level >= q.MinLevel then
+                highestQuest = q
+            elseif not nextQuest then
+                nextQuest = q
+            end
+        end
+
+        local currentQuestText = highestQuest and highestQuest.DisplayName or "None"
+        local nextQuestText = nextQuest and nextQuest.DisplayName or "Max"
+
+        questInfoLabel:Set(string.format(
+            "Current Level: %d\nCurrent Quest: %s | Next Quest: %s",
+            level,
+            currentQuestText,
+            nextQuestText
+        ))
+    end)
+
+    -- =======================
+    -- Auto Quests Section
+    -- =======================
+    MainTab:CreateSection("Auto Quests")
+
     -- AutoQuest (Highest Quest)
-    -- =======================
     local autoQuestEnabled = false
     local autoQuestLoop
 
@@ -32,7 +67,7 @@ return function(Window, player, QuestEvent, quests, RunService)
         return questFrame and questFrame.Visible or false
     end
 
-    AutoQuestTab:CreateToggle({
+    MainTab:CreateToggle({
         Name = "AutoQuest (Highest Available)",
         CurrentValue = false,
         Flag = "AutoQuestToggle",
@@ -69,7 +104,7 @@ return function(Window, player, QuestEvent, quests, RunService)
     local specificQuestConnection
 
     -- Toggle first
-    AutoQuestTab:CreateToggle({
+    MainTab:CreateToggle({
         Name = "Start Specific Quest",
         CurrentValue = false,
         Flag = "AutoStartSpecificToggle",
@@ -115,7 +150,7 @@ return function(Window, player, QuestEvent, quests, RunService)
         table.insert(questOptions, q.DisplayName)
     end
 
-    AutoQuestTab:CreateDropdown({
+    MainTab:CreateDropdown({
         Name = "Choose Quest",
         Options = questOptions,
         CurrentOption = {questOptions[1]},
@@ -125,7 +160,6 @@ return function(Window, player, QuestEvent, quests, RunService)
             selectedQuest = options[1]
         end
     })
-    
-    
-    return AutoQuestTab
+
+    return MainTab
 end
