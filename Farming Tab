@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.50
+-- version: 1.51
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
@@ -32,8 +32,18 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
     local behindDistance = 8
     local aboveHeight = 1
 
+    local function formatHealth(health)
+        if health <= 0 then return "N/A" end
+        local str = string.format("%.2f", health)
+        local integerPart, decimalPart = str:match("([^.]+)%.?(.*)")
+        if not integerPart then integerPart = "0" end
+        if decimalPart == "" then decimalPart = "00" else decimalPart = decimalPart .. string.rep("0", 2 - #decimalPart) end
+        local formattedInt = integerPart:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+        return formattedInt .. "." .. decimalPart
+    end
+
     RunService.Heartbeat:Connect(function()
-        questInfoLabel:Set(string.format("Targeting: %s | Health: %s", currentTarget, currentHealth > 0 and tostring(currentHealth) or "N/A"))
+        questInfoLabel:Set(string.format("Targeting: %s | Health: %s", currentTarget, formatHealth(currentHealth)))
     end)
 
     -- ======= Helpers =======
@@ -145,6 +155,12 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                     if autoFarmZoneLock then autoFarmZoneLock:Disconnect(); autoFarmZoneLock = nil end
                     if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect() end
                     autoFarmHeartbeat = RunService.Heartbeat:Connect(function()
+                        if not autoFarmEnabled then
+                            if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
+                            currentTarget = "Idle"
+                            currentHealth = 0
+                            return
+                        end
                         if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                             local targetPos = GetSafeBehindPosition(enemyHRP)
                             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, aboveHeight, 0)), 0.35)
@@ -161,6 +177,12 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                     if multiFarmZoneLock then multiFarmZoneLock:Disconnect(); multiFarmZoneLock = nil end
                     if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect() end
                     multiFarmHeartbeat = RunService.Heartbeat:Connect(function()
+                        if not multiQuestEnabled then
+                            if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
+                            currentTarget = "Idle"
+                            currentHealth = 0
+                            return
+                        end
                         if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                             local targetPos = GetSafeBehindPosition(enemyHRP)
                             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, aboveHeight, 0)), 0.35)
