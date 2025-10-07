@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.4.9
+-- version: 1.50
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
@@ -8,38 +8,10 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
     local FarmTab = Window:CreateTab("Farming", "swords")
 
     -- =======================
-    -- Quest Info Section
+    -- Target Info Section
     -- =======================
-    FarmTab:CreateSection("Quest Info")
-    local questInfoLabel = FarmTab:CreateLabel("Current Level: 0\nCurrent Quest: None | Next Quest: None")
-
-    RunService.Heartbeat:Connect(function()
-        local level = player:WaitForChild("Data"):WaitForChild("Level").Value
-
-        -- Sort quests by MinLevel ascending
-        table.sort(quests, function(a, b)
-            return a.MinLevel < b.MinLevel
-        end)
-
-        local highestQuest, nextQuest
-        for i, q in ipairs(quests) do
-            if level >= q.MinLevel then
-                highestQuest = q
-            elseif not nextQuest then
-                nextQuest = q
-            end
-        end
-
-        local currentQuestText = highestQuest and highestQuest.DisplayName or "None"
-        local nextQuestText = nextQuest and nextQuest.DisplayName or "Max"
-
-        questInfoLabel:Set(string.format(
-            "Current Level: %d\nCurrent Quest: %s | Next Quest: %s",
-            level,
-            currentQuestText,
-            nextQuestText
-        ))
-    end)
+    FarmTab:CreateSection("Target Info")
+    local questInfoLabel = FarmTab:CreateLabel("Targeting: Idle | Health: N/A")
 
     -- State for different farms
     local autoFarmEnabled = false
@@ -47,6 +19,9 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
     local superKillEnabled = false
     local selectedQuests = {}
     local selectedWeapon = "None"
+
+    local currentTarget = "Idle"
+    local currentHealth = 0
 
     -- Separate connections
     local autoFarmHeartbeat, autoFarmZoneLock
@@ -56,6 +31,10 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
     -- Configurable sliders
     local behindDistance = 8
     local aboveHeight = 1
+
+    RunService.Heartbeat:Connect(function()
+        questInfoLabel:Set(string.format("Targeting: %s | Health: %s", currentTarget, currentHealth > 0 and tostring(currentHealth) or "N/A"))
+    end)
 
     -- ======= Helpers =======
     local function IsInQuest()
@@ -169,9 +148,13 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                         if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                             local targetPos = GetSafeBehindPosition(enemyHRP)
                             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, aboveHeight, 0)), 0.35)
+                            currentTarget = enemy.Name
+                            currentHealth = enemy.Humanoid.Health
                         else
                             if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
                             LockAtPosition(zoneCFrame, "auto")
+                            currentTarget = string.format("Searching for %s", targetEnemyName)
+                            currentHealth = 0
                         end
                     end)
                 elseif farmType == "multi" then
@@ -181,9 +164,13 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                         if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
                             local targetPos = GetSafeBehindPosition(enemyHRP)
                             hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, aboveHeight, 0)), 0.35)
+                            currentTarget = enemy.Name
+                            currentHealth = enemy.Humanoid.Health
                         else
                             if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
                             LockAtPosition(zoneCFrame, "multi")
+                            currentTarget = string.format("Searching for %s", targetEnemyName)
+                            currentHealth = 0
                         end
                     end)
                 end
@@ -195,6 +182,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                 AttachSuperKill(enemy)
             else
                 LockAtPosition(zoneCFrame, farmType)
+                currentTarget = string.format("Searching for %s", targetEnemyName)
+                currentHealth = 0
             end
 
             task.wait(0.1)
@@ -272,6 +261,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                         if bestQuest then
                             FarmQuest(bestQuest, "auto")
                         else
+                            currentTarget = "No Suitable Quest"
+                            currentHealth = 0
                             task.wait(1)
                         end
                     end
@@ -280,6 +271,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
                 if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
                 if autoFarmZoneLock then autoFarmZoneLock:Disconnect(); autoFarmZoneLock = nil end
+                currentTarget = "Idle"
+                currentHealth = 0
             end
         end
     })
@@ -338,6 +331,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                     task.wait(0.1)
                     while multiQuestEnabled do
                         if #selectedQuests == 0 then
+                            currentTarget = "No Quests Selected"
+                            currentHealth = 0
                             task.wait(0.5)
                         else
                             for _, questName in ipairs(selectedQuests) do
@@ -360,6 +355,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                 QuestEvent:FireServer({ Type = "RemoveQuest" })
                 if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
                 if multiFarmZoneLock then multiFarmZoneLock:Disconnect(); multiFarmZoneLock = nil end
+                currentTarget = "Idle"
+                currentHealth = 0
             end
         end
     })
@@ -472,6 +469,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                     if bestQuest then
                         FarmQuest(bestQuest, "auto")
                     else
+                        currentTarget = "No Suitable Quest"
+                        currentHealth = 0
                         task.wait(1)
                     end
                 end
@@ -483,6 +482,8 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                 task.wait(0.1)
                 while multiQuestEnabled do
                     if #selectedQuests == 0 then
+                        currentTarget = "No Quests Selected"
+                        currentHealth = 0
                         task.wait(0.5)
                     else
                         for _, questName in ipairs(selectedQuests) do
