@@ -20,5 +20,8 @@ return {
     {Min = 650, Max = 699, EnemyName = "Lv650"},
     {Min = 700, Max = 749, EnemyName = "Lv700"},
     {Min = 750, Max = 799, EnemyName = "Lv750"},
-    {Min = 800, Max = 1000, EnemyName = "Lv800"},
+    {Min = 800, Max = 849, EnemyName = "Lv800"},
+    {Min = 850, Max = 899, EnemyName = "Lv850"},
+    {Min = 900, Max = 949, EnemyName = "Lv900"},
+    {Min = 950, Max = 1001, EnemyName = "Lv950"},
 }
