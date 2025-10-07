@@ -20,7 +20,7 @@ return {
     {Min = 650, Max = 699, CFrame = CFrame.new(1269.167, 24.231, -1321.958)},
     {Min = 700, Max = 749, CFrame = CFrame.new(1446.316, 23.847, -1365.978)},
     {Min = 750, Max = 799, CFrame = CFrame.new(1429.03, 31.731, -1614.11)},
-    {Min = 800, Max = 845, CFrame = CFrame.new(1782.16, 23.25, 713.33)},
+    {Min = 800, Max = 845, CFrame = CFrame.new(1429.03, 31.731, -1614.11)},
     {Min = 850, Max = 899, CFrame = CFrame.new(1782.16, 23.25, 713.33)},
     {Min = 900, Max = 949, CFrame = CFrame.new(1946.666, 33.704, 685.717)},
     {Min = 950, Max = 1001, CFrame = CFrame.new(2085.364, 33.704, 685.717)},
