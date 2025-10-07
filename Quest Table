@@ -21,4 +21,7 @@ return {
     {MinLevel = 700, QuestName = "Quest 19", DisplayName = "Quest 19 (Lv 700)"},
     {MinLevel = 750, QuestName = "Quest 20", DisplayName = "Quest 20 (Lv 750)"},
     {MinLevel = 800, QuestName = "Quest 21", DisplayName = "Quest 21 (Lv 800)"},
+    {MinLevel = 850, QuestName = "Quest 22, DisplayName = "Quest 22 (Lv 850)"},
+    {MinLevel = 900, QuestName = "Quest 23", DisplayName = "Quest 23 (Lv 900)"},
+    {MinLevel = 950, QuestName = "Quest 24", DisplayName = "Quest 24 (Lv 950)"},
 }
