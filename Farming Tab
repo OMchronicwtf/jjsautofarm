@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.51
+-- version: 1.52
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
@@ -225,6 +225,19 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
     -- =======================
     FarmTab:CreateSection("Farming")
 
+    -- Weapon Dropdown (now with "None")
+    local weaponOptions = {"None", "Weapon", "Style", "Moveset"}
+    FarmTab:CreateDropdown({
+        Name = "Equip Weapon",
+        Options = weaponOptions,
+        CurrentOption = {selectedWeapon},
+        MultipleOptions = false,
+        Flag = "WeaponDropdown",
+        Callback = function(option)
+            selectedWeapon = option[1]
+        end
+    })
+
     -- Normal AutoFarm
     FarmTab:CreateToggle({
         Name = "AutoFarm (Highest Available)",
@@ -402,19 +415,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
         Flag = "SuperKillToggle",
         Callback = function(state)
             superKillEnabled = state
-        end
-    })
-
-    -- Weapon Dropdown (now with "None")
-    local weaponOptions = {"None", "Weapon", "Style", "Moveset"}
-    FarmTab:CreateDropdown({
-        Name = "Select Weapon to Equip",
-        Options = weaponOptions,
-        CurrentOption = {selectedWeapon},
-        MultipleOptions = false,
-        Flag = "WeaponDropdown",
-        Callback = function(option)
-            selectedWeapon = option[1]
         end
     })
 
