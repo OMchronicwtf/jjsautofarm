@@ -1,9 +1,9 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.4.7
+-- version: 1.4.9
 -- =======================
 
-return function(Window, player, QuestEvent, quests, teleportZones, RunService)
+return function(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
     -- Create Farm Tab
     local FarmTab = Window:CreateTab("Farming", "swords")
 
@@ -75,6 +75,15 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         return bestZone
     end
 
+    local function GetEnemyNameForQuest(minLevel)
+        for _, entry in ipairs(enemyTable) do
+            if minLevel >= entry.Min and minLevel <= entry.Max then
+                return entry.EnemyName
+            end
+        end
+        return nil -- No match, fallback or skip
+    end
+
     local function TeleportToZone(level)
         local zone = GetZoneForLevel(level)
         if zone then
@@ -125,6 +134,9 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         local zone = GetZoneForLevel(questData.MinLevel)
         if not zone then return end
 
+        local targetEnemyName = GetEnemyNameForQuest(questData.MinLevel)
+        if not targetEnemyName then return end -- No enemy name found, skip
+
         local zoneCFrame = zone.CFrame
         TeleportToZone(questData.MinLevel)
         LockAtPosition(zoneCFrame, farmType)
@@ -141,8 +153,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
         repeat
             local enemy = nil
             for _, mob in pairs(workspace.Mobs:GetChildren()) do
-                local levelNum = tonumber(mob.Name:match("Lv(%d+)"))
-                if levelNum == questData.MinLevel and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") then
+                if mob.Name == targetEnemyName and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") then
                     enemy = mob
                     break
                 end
