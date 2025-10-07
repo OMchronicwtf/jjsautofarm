@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.4.6
+-- version: 1.4.7
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService)
@@ -217,10 +217,13 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
                     while autoFarmEnabled or multiQuestEnabled do
                         if selectedWeapon ~= "None" then
                             local char = player.Character
-                            if char and char:FindFirstChildOfClass("Tool") == nil then
-                                local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                                if tool and char:FindFirstChild("Humanoid") then
-                                    char.Humanoid:EquipTool(tool)
+                            if char and char:FindFirstChild("Humanoid") then
+                                local currentTool = char:FindFirstChildOfClass("Tool")
+                                if not currentTool or currentTool.Name ~= selectedWeapon then
+                                    local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                                    if tool then
+                                        char.Humanoid:EquipTool(tool)
+                                    end
                                 end
                             end
                         end
@@ -232,9 +235,15 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
 
             if state then
                 if selectedWeapon ~= "None" then
-                    local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                    if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                        player.Character.Humanoid:EquipTool(tool)
+                    local char = player.Character
+                    if char and char:FindFirstChild("Humanoid") then
+                        local currentTool = char:FindFirstChildOfClass("Tool")
+                        if not currentTool or currentTool.Name ~= selectedWeapon then
+                            local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                            if tool then
+                                char.Humanoid:EquipTool(tool)
+                            end
+                        end
                     end
                 end
 
@@ -283,10 +292,13 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
                     while autoFarmEnabled or multiQuestEnabled do
                         if selectedWeapon ~= "None" then
                             local char = player.Character
-                            if char and char:FindFirstChildOfClass("Tool") == nil then
-                                local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                                if tool and char:FindFirstChild("Humanoid") then
-                                    char.Humanoid:EquipTool(tool)
+                            if char and char:FindFirstChild("Humanoid") then
+                                local currentTool = char:FindFirstChildOfClass("Tool")
+                                if not currentTool or currentTool.Name ~= selectedWeapon then
+                                    local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                                    if tool then
+                                        char.Humanoid:EquipTool(tool)
+                                    end
                                 end
                             end
                         end
@@ -297,6 +309,19 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
             end
 
             if state then
+                if selectedWeapon ~= "None" then
+                    local char = player.Character
+                    if char and char:FindFirstChild("Humanoid") then
+                        local currentTool = char:FindFirstChildOfClass("Tool")
+                        if not currentTool or currentTool.Name ~= selectedWeapon then
+                            local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                            if tool then
+                                char.Humanoid:EquipTool(tool)
+                            end
+                        end
+                    end
+                end
+
                 task.spawn(function()
                     QuestEvent:FireServer({ Type = "RemoveQuest" })
                     task.wait(0.1)
@@ -409,9 +434,15 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService)
     -- =======================
     local function ResumeFarming()
         if selectedWeapon ~= "None" then
-            local tool = player.Backpack:FindFirstChild(selectedWeapon)
-            if tool and player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid:EquipTool(tool)
+            local char = player.Character
+            if char and char:FindFirstChild("Humanoid") then
+                local currentTool = char:FindFirstChildOfClass("Tool")
+                if not currentTool or currentTool.Name ~= selectedWeapon then
+                    local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                    if tool then
+                        char.Humanoid:EquipTool(tool)
+                    end
+                end
             end
         end
 
