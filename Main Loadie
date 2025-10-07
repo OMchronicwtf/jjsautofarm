@@ -23,6 +23,7 @@ local RunService = game:GetService("RunService")
 -- Quest & Teleports
 local quests = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Quest%20Table"))()
 local teleportZones = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Teleport%20Zones%20Table"))()
+local enemyTable = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Enemy%20Table"))()
 
 -- =======================
 -- Main Tab (Quests)
@@ -34,7 +35,7 @@ local MainTab = MainModule(Window, player, QuestEvent, quests, RunService)
 -- Farming Tab (Normal + MultiQuest + SuperKill)
 -- =======================
 local FarmModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Farming%20Tab"))()
-local FarmTab = FarmModule(Window, player, QuestEvent, quests, teleportZones, RunService)
+local FarmTab = FarmModule(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
 
 -- =======================
 -- Auto Stats Tab
