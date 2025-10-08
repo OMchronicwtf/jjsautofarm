@@ -1,0 +1,374 @@
+-- =======================
+-- Farming Module (Enemy-to-Player)
+-- version: 1.52-mod
+-- =======================
+
+return function(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
+    -- Create Farm Tab
+    local FarmTab = Window:CreateTab("Farming", "swords")
+
+    -- =======================
+    -- Target Info Section
+    -- =======================
+    FarmTab:CreateSection("Target Info")
+    local questInfoLabel = FarmTab:CreateLabel("Targeting: Idle | Health: N/A")
+
+    -- State
+    local autoFarmEnabled = false
+    local multiQuestEnabled = false
+    local superKillEnabled = false
+    local selectedQuests = {}
+    local selectedWeapon = "None"
+
+    local currentTarget = "Idle"
+    local currentHealth = 0
+
+    -- Connections
+    local autoFarmHeartbeat
+    local multiFarmHeartbeat
+    local weaponCheckLoop
+
+    -- Configurable offsets
+    local behindDistance = 8
+    local aboveHeight = 1
+
+    local function formatHealth(health)
+        if health <= 0 then return "N/A" end
+        local str = string.format("%.2f", health)
+        local integerPart, decimalPart = str:match("([^.]+)%.?(.*)")
+        if not integerPart then integerPart = "0" end
+        if decimalPart == "" then decimalPart = "00" else decimalPart = decimalPart .. string.rep("0", 2 - #decimalPart) end
+        local formattedInt = integerPart:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+        return formattedInt .. "." .. decimalPart
+    end
+
+    RunService.Heartbeat:Connect(function()
+        questInfoLabel:Set(string.format("Targeting: %s | Health: %s", currentTarget, formatHealth(currentHealth)))
+    end)
+
+    -- ======= Helpers =======
+    local function IsInQuest()
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
+        return questFrame and questFrame.Visible or false
+    end
+
+    local function GetZoneForLevel(level)
+        local bestZone
+        for _, zone in ipairs(teleportZones) do
+            if level >= zone.Min and level <= zone.Max then
+                if not bestZone or zone.Min > bestZone.Min then
+                    bestZone = zone
+                end
+            end
+        end
+        return bestZone
+    end
+
+    local function GetEnemyNameForQuest(minLevel)
+        for _, entry in ipairs(enemyTable) do
+            if minLevel >= entry.Min and minLevel <= entry.Max then
+                return entry.EnemyName
+            end
+        end
+        return nil
+    end
+
+    local function AttachSuperKill(enemy)
+        if enemy and enemy:FindFirstChild("Humanoid") and superKillEnabled then
+            local humanoid = enemy.Humanoid
+            local initialHealth = humanoid.Health
+            local connection
+            connection = humanoid.HealthChanged:Connect(function(health)
+                if health <= initialHealth * 0.88 then
+                    humanoid.Health = 0
+                    connection:Disconnect()
+                end
+            end)
+        end
+    end
+
+    -- This replaces GetSafeBehindPosition + LockAtPosition
+    local function BringEnemyToPlayer(enemyHRP)
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local targetPos = hrp.Position - hrp.CFrame.LookVector * behindDistance + Vector3.new(0, aboveHeight, 0)
+            enemyHRP.CFrame = CFrame.new(targetPos, hrp.Position) -- enemy faces you
+        end
+    end
+
+    local function FarmQuest(questData, farmType)
+        if not questData then return end
+
+        local targetEnemyName = GetEnemyNameForQuest(questData.MinLevel)
+        if not targetEnemyName then return end
+
+        if not IsInQuest() then
+            QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
+        end
+        repeat task.wait(0.1) until IsInQuest()
+
+        local hrp = player.Character:WaitForChild("HumanoidRootPart")
+
+        local function startLoop()
+            local connection
+            connection = RunService.Heartbeat:Connect(function()
+                if (farmType == "auto" and not autoFarmEnabled) or (farmType == "multi" and not multiQuestEnabled) then
+                    if connection then connection:Disconnect() end
+                    currentTarget = "Idle"
+                    currentHealth = 0
+                    return
+                end
+
+                local enemy = nil
+                for _, mob in pairs(workspace.Mobs:GetChildren()) do
+                    if mob.Name == targetEnemyName and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") then
+                        enemy = mob
+                        break
+                    end
+                end
+
+                if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
+                    local enemyHRP = enemy.HumanoidRootPart
+                    BringEnemyToPlayer(enemyHRP)
+                    currentTarget = enemy.Name
+                    currentHealth = enemy.Humanoid.Health
+                    game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
+                        type = "M1", InAir = false, UpTilt = false
+                    })
+                    AttachSuperKill(enemy)
+                else
+                    currentTarget = string.format("Searching for %s", targetEnemyName)
+                    currentHealth = 0
+                end
+            end)
+
+            if farmType == "auto" then autoFarmHeartbeat = connection
+            elseif farmType == "multi" then multiFarmHeartbeat = connection end
+        end
+
+        startLoop()
+
+        repeat task.wait(0.1) until not IsInQuest()
+
+        if farmType == "auto" and autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
+        if farmType == "multi" and multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
+    end
+
+    -- =======================
+    -- Farming Section
+    -- =======================
+    FarmTab:CreateSection("Farming")
+
+    local weaponOptions = {"None", "Weapon", "Style", "Moveset"}
+    FarmTab:CreateDropdown({
+        Name = "Equip Weapon",
+        Options = weaponOptions,
+        CurrentOption = {selectedWeapon},
+        MultipleOptions = false,
+        Flag = "WeaponDropdown",
+        Callback = function(option)
+            selectedWeapon = option[1]
+        end
+    })
+
+    -- AutoFarm
+    FarmTab:CreateToggle({
+        Name = "AutoFarm (Highest Available)",
+        CurrentValue = false,
+        Flag = "AutoFarmToggle",
+        Callback = function(state)
+            autoFarmEnabled = state
+            -- weapon check loop
+            if (autoFarmEnabled or multiQuestEnabled) and not weaponCheckLoop then
+                weaponCheckLoop = task.spawn(function()
+                    while autoFarmEnabled or multiQuestEnabled do
+                        if selectedWeapon ~= "None" then
+                            local char = player.Character
+                            if char and char:FindFirstChild("Humanoid") then
+                                local currentTool = char:FindFirstChildOfClass("Tool")
+                                if not currentTool or currentTool.Name ~= selectedWeapon then
+                                    local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                                    if tool then
+                                        char.Humanoid:EquipTool(tool)
+                                    end
+                                end
+                            end
+                        end
+                        task.wait(1)
+                    end
+                    weaponCheckLoop = nil
+                end)
+            end
+
+            if state then
+                task.spawn(function()
+                    QuestEvent:FireServer({ Type = "RemoveQuest" })
+                    task.wait(0.2)
+                    while autoFarmEnabled do
+                        local level = player:WaitForChild("Data").Level.Value
+                        local bestQuest
+                        for _, q in ipairs(quests) do
+                            if level >= q.MinLevel then bestQuest = q end
+                        end
+                        if bestQuest then
+                            FarmQuest(bestQuest, "auto")
+                        else
+                            currentTarget = "No Suitable Quest"
+                            currentHealth = 0
+                            task.wait(1)
+                        end
+                    end
+                end)
+            else
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+                if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
+                currentTarget = "Idle"
+                currentHealth = 0
+            end
+        end
+    })
+
+    -- MultiFarm
+    local questOptions = {}
+    for _, q in ipairs(quests) do table.insert(questOptions, q.DisplayName) end
+
+    FarmTab:CreateToggle({
+        Name = "Specific/Multi-Quest Farm",
+        CurrentValue = false,
+        Flag = "MultiQuestToggle",
+        Callback = function(state)
+            multiQuestEnabled = state
+            if (autoFarmEnabled or multiQuestEnabled) and not weaponCheckLoop then
+                weaponCheckLoop = task.spawn(function()
+                    while autoFarmEnabled or multiQuestEnabled do
+                        if selectedWeapon ~= "None" then
+                            local char = player.Character
+                            if char and char:FindFirstChild("Humanoid") then
+                                local currentTool = char:FindFirstChildOfClass("Tool")
+                                if not currentTool or currentTool.Name ~= selectedWeapon then
+                                    local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                                    if tool then char.Humanoid:EquipTool(tool) end
+                                end
+                            end
+                        end
+                        task.wait(1)
+                    end
+                    weaponCheckLoop = nil
+                end)
+            end
+
+            if state then
+                task.spawn(function()
+                    QuestEvent:FireServer({ Type = "RemoveQuest" })
+                    task.wait(0.1)
+                    while multiQuestEnabled do
+                        if #selectedQuests == 0 then
+                            currentTarget = "No Quests Selected"
+                            currentHealth = 0
+                            task.wait(0.5)
+                        else
+                            for _, questName in ipairs(selectedQuests) do
+                                if not multiQuestEnabled then break end
+                                local questData
+                                for _, q in ipairs(quests) do
+                                    if q.DisplayName == questName then questData = q break end
+                                end
+                                if questData then FarmQuest(questData, "multi") end
+                            end
+                        end
+                    end
+                end)
+            else
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+                if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
+                currentTarget = "Idle"
+                currentHealth = 0
+            end
+        end
+    })
+
+    FarmTab:CreateDropdown({
+        Name = "Select Quests to Farm",
+        Options = questOptions,
+        CurrentOption = {},
+        MultipleOptions = true,
+        Flag = "MultiQuestDropdown",
+        Callback = function(options) selectedQuests = options end
+    })
+
+    -- SuperKill
+    FarmTab:CreateToggle({
+        Name = "Instakill (After 12% Damage)",
+        CurrentValue = false,
+        Flag = "SuperKillToggle",
+        Callback = function(state) superKillEnabled = state end
+    })
+
+    -- Adjust Section
+    FarmTab:CreateSection("Adjust")
+    local distanceSlider = FarmTab:CreateSlider({
+        Name = "Enemy Offset Behind You",
+        Range = {1, 15}, Increment = 0.5, Suffix = "Studs",
+        CurrentValue = behindDistance,
+        Flag = "DistanceSlider",
+        Callback = function(value) behindDistance = value end
+    })
+    local heightSlider = FarmTab:CreateSlider({
+        Name = "Enemy Offset Height",
+        Range = {0, 10}, Increment = 0.5, Suffix = "Studs",
+        CurrentValue = aboveHeight,
+        Flag = "HeightSlider",
+        Callback = function(value) aboveHeight = value end
+    })
+    FarmTab:CreateButton({
+        Name = "Set Default",
+        Callback = function()
+            behindDistance = 8
+            aboveHeight = 1
+            distanceSlider:Set(behindDistance)
+            heightSlider:Set(aboveHeight)
+        end
+    })
+
+    FarmTab:CreateSection("")
+
+    -- Respawn Handling
+    local function ResumeFarming()
+        if autoFarmEnabled then
+            task.spawn(function()
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+                task.wait(0.2)
+                while autoFarmEnabled do
+                    local level = player:WaitForChild("Data").Level.Value
+                    local bestQuest
+                    for _, q in ipairs(quests) do if level >= q.MinLevel then bestQuest = q end end
+                    if bestQuest then FarmQuest(bestQuest, "auto")
+                    else currentTarget = "No Suitable Quest" currentHealth = 0 task.wait(1) end
+                end
+            end)
+        end
+        if multiQuestEnabled then
+            task.spawn(function()
+                QuestEvent:FireServer({ Type = "RemoveQuest" })
+                task.wait(0.1)
+                while multiQuestEnabled do
+                    if #selectedQuests == 0 then
+                        currentTarget = "No Quests Selected"
+                        currentHealth = 0
+                        task.wait(0.5)
+                    else
+                        for _, questName in ipairs(selectedQuests) do
+                            if not multiQuestEnabled then break end
+                            local questData
+                            for _, q in ipairs(quests) do if q.DisplayName == questName then questData = q break end end
+                            if questData then FarmQuest(questData, "multi") end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+    player.CharacterAdded:Connect(function() task.wait(1) ResumeFarming() end)
+
+    return FarmTab
+end
