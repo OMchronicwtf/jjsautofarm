@@ -1,6 +1,6 @@
 -- =======================
--- Main Tab Module (Fixed AutoQuest Timing)
--- version: 1.10
+-- Main Tab Module (Faster AutoQuest)
+-- version: 1.11
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
@@ -83,8 +83,8 @@ return function(Window, player, QuestEvent, quests, RunService)
                             continue
                         end
 
-                        -- Delay briefly after finishing a quest to allow level updates
-                        task.wait(1)
+                        -- Reduced delay for faster quest pickup after completion
+                        task.wait(0.2)
 
                         local quest = GetHighestQuest()
                         if quest then
