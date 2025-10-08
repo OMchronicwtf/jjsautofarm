@@ -1,6 +1,6 @@
 -- =======================
--- Main Tab Module
--- version: 1.0.9
+-- Main Tab Module (Fixed AutoQuest Timing)
+-- version: 1.10
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService)
@@ -76,17 +76,27 @@ return function(Window, player, QuestEvent, quests, RunService)
                 QuestEvent:FireServer({Type = "RemoveQuest"})
                 task.wait(0.1)
 
-                autoQuestLoop = RunService.Heartbeat:Connect(function()
-                    if not autoQuestEnabled then return end
-                    if IsInQuest() then return end
-                    local quest = GetHighestQuest()
-                    if quest then
-                        QuestEvent:FireServer({Quest = quest.QuestName, Type = "RepeatQuest"})
+                autoQuestLoop = task.spawn(function()
+                    while autoQuestEnabled do
+                        if IsInQuest() then
+                            task.wait(0.1)
+                            continue
+                        end
+
+                        -- Delay briefly after finishing a quest to allow level updates
+                        task.wait(1)
+
+                        local quest = GetHighestQuest()
+                        if quest then
+                            QuestEvent:FireServer({Quest = quest.QuestName, Type = "RepeatQuest"})
+                        end
+
+                        task.wait(0.1)
                     end
                 end)
             else
                 if autoQuestLoop then
-                    autoQuestLoop:Disconnect()
+                    task.cancel(autoQuestLoop)
                     autoQuestLoop = nil
                 end
                 QuestEvent:FireServer({Type = "RemoveQuest"})
