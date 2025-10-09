@@ -1,12 +1,8 @@
 -- ShopTabModule.lua
 return function(Window, Event)
-    -- Create Shop tab
-    local ShopTab = Window:CreateTab("Shop", "shopping-cart") -- Icon can be Lucide string
+    local ShopTab = Window:CreateTab("Shop", "shopping-cart")
+    local ShopSection = ShopTab:CreateSection("Shop") -- ✅ section
 
-    -- Section for Shop
-    local ShopSection = ShopTab:CreateSection("Shop")
-
-    -- Hardcoded dropdown options
     local dropdownOptions = {
         "MV1 | Explosive Bomb",
         "MV2 | Construction",
@@ -26,7 +22,6 @@ return function(Window, Event)
 
     local selectedItem = nil
 
-    -- Dropdown for selecting item
     ShopSection:CreateDropdown({
         Name = "Select Item",
         Options = dropdownOptions,
@@ -38,15 +33,11 @@ return function(Window, Event)
         end
     })
 
-    -- Purchase button
     ShopSection:CreateButton({
         Name = "Purchase",
         Callback = function()
             if selectedItem then
-                Event:FireServer({
-                    Item = selectedItem,
-                    Type = "StockBuy"
-                })
+                Event:FireServer({ Item = selectedItem, Type = "StockBuy" })
                 Rayfield:Notify({
                     Title = "Shop",
                     Content = "Purchased: " .. selectedItem,
