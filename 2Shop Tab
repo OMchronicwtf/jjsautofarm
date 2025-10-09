@@ -46,9 +46,11 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
 
         ItemDropdown:Refresh(options)
 
-        -- Reset to first option if no selection and options available
-        if #options > 0 and #ItemDropdown.CurrentOption == 0 then
+        -- Always reset to first valid option to avoid stale selections
+        if #options > 0 then
             ItemDropdown:Set({options[1]})
+        else
+            ItemDropdown:Set({})
         end
     end
 
@@ -94,28 +96,37 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
                 return
             end
 
+            -- Double-check item is still available (prevents stale buys)
+            if not availableStock:FindFirstChild(key) then
+                print("Item no longer available! Refreshing...")
+                refreshDropdown()
+                return
+            end
+
             local data = stockTable[key]
             if not data then
                 print("Item data not found!")
                 return
             end
 
-            -- Get player's money (assuming player.Data.Money.Value; adjust path if different)
+            -- Get player's cash (updated to Cash.Value)
             local playerData = player:WaitForChild("Data")
-            local playerMoney = playerData:WaitForChild("Money").Value
+            local playerCash = playerData:WaitForChild("Cash").Value
 
             local itemPrice = parsePrice(data.Price)
-            if playerMoney < itemPrice then
-                -- Notify user of insufficient funds (using print for now; pass Rayfield to module for Notify)
-                print("Insufficient funds! Need " .. itemPrice .. " but have " .. playerMoney)
-                -- TODO: For Rayfield Notify, update main script to pass Rayfield as param, e.g., ShopModule(..., Rayfield)
-                -- Then: Rayfield:Notify({Title = "Shop Error", Content = "Insufficient funds! Need " .. itemPrice .. " but have " .. playerMoney, Duration = 3})
+            if playerCash < itemPrice then
+                print("Insufficient funds! Need " .. itemPrice .. " but have " .. playerCash)
                 return
             end
 
             if QuestEvent then
                 QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
-                print("Attempted to buy: " .. key .. " (" .. stockTable[key].Name .. ")")
+                print("Attempted to buy: " .. key .. " (" .. data.Name .. ")")
+                -- Clear and refresh after buy to sync UI
+                task.spawn(function()
+                    task.wait(0.2) -- Brief delay for server sync
+                    refreshDropdown()
+                end)
             else
                 print("QuestEvent not available!")
             end
