@@ -1,6 +1,6 @@
 -- ShoppingModule.lua
 -- Returns a function to create the Shopping tab
-return function(Window, QuestEvent, stockTable)
+return function(Window, QuestEvent, stockTable, Rayfield)
     -- Create tab and section
     local ShopTab = Window:CreateTab("Shopping 🛒", "shopping-bag")
     local ShopSection = ShopTab:CreateSection("Item Shop")
