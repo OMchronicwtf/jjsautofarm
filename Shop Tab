@@ -1,23 +1,32 @@
 -- ShopTabModule.lua
--- Module for Jututsu Seas Shop Tab
+-- Static Shop Tab Module
 
--- Always return a function to avoid breaking tab loading
-return function(Window, StockTable, Event)
+return function(Window, Event)
     -- Create the Shop tab
     local ShopTab = Window:CreateTab("Shop", 4483362458) -- Lucide icon ID
-
-    -- Create a section inside the Shop tab
     local ShopSection = ShopTab:CreateSection("Stock Items")
 
-    -- Build dropdown options dynamically from StockTable
-    local dropdownOptions = {}
-    for key, item in pairs(StockTable) do
-        table.insert(dropdownOptions, key .. " | " .. item.Name .. " - " .. item.Price)
-    end
+    -- Static dropdown options (from Stock Table)
+    local dropdownOptions = {
+        "MV1 | Explosive Bomb - $ 75,000",
+        "MV2 | Construction - $ 150,000",
+        "MV3 | Rubber - $ 200,000",
+        "MV9 | Vital Arts - $ 650,000",
+        "MV8 | Turbo Soul - $ 850,000",
+        "MV14 | Sakura Blossom - $ 950,000",
+        "MV5 | Light - $ 1,250,000",
+        "MV6 | Star Guardian - $ 1,500,000",
+        "MV7 | Ice - $ 1,750,000",
+        "MV15 | Flame Breathing - $ 1,875,000",
+        "MV10 | Infinity - $ 2,150,000",
+        "MV12 | Monarch - $ 2,500,000",
+        "MV11 | Vessel - $ 2,900,000",
+        "MV13 | Spectral Reaper - $ 3,250,000"
+    }
 
-    local selectedItem = nil -- stores current selection
+    local selectedItem = nil
 
-    -- Create dropdown to select items
+    -- Create dropdown
     ShopSection:CreateDropdown({
         Name = "Select Item",
         Options = dropdownOptions,
@@ -25,7 +34,6 @@ return function(Window, StockTable, Event)
         MultipleOptions = false,
         Flag = "ShopDropdown",
         Callback = function(option)
-            -- Extract the MV key from the dropdown string
             selectedItem = option:match("^(%w+)")
         end
     })
@@ -34,21 +42,18 @@ return function(Window, StockTable, Event)
     ShopSection:CreateButton({
         Name = "Purchase",
         Callback = function()
-            if selectedItem and StockTable[selectedItem] then
-                -- Fire the purchase event
+            if selectedItem then
                 Event:FireServer({
                     Item = selectedItem,
                     Type = "StockBuy"
                 })
-                -- Notify the user of success
                 Rayfield:Notify({
                     Title = "Shop",
-                    Content = "Purchased: " .. StockTable[selectedItem].Name,
+                    Content = "Purchased: " .. selectedItem,
                     Duration = 4,
                     Image = "shopping-cart"
                 })
             else
-                -- Notify the user if no selection is made
                 Rayfield:Notify({
                     Title = "Shop",
                     Content = "No item selected!",
