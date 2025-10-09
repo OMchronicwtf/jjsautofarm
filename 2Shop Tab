@@ -1,0 +1,230 @@
+-- =======================
+-- Shop Tab Module (Patched - Fault Tolerant)
+-- =======================
+
+return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
+    -- Hardcoded stockTable to bypass potential HttpGet issues (upload to GitHub later if needed)
+    local stockTable = {
+        MV1 = { Name = "Explosive Bomb", Price = "$ 75,000" },
+        MV2 = { Name = "Construction", Price = "$ 150,000" },
+        MV3 = { Name = "Rubber", Price = "$ 200,000" },
+        MV9 = { Name = "Vital Arts", Price = "$ 650,000" },
+        MV8 = { Name = "Turbo Soul", Price = "$ 850,000" },
+        MV14 = { Name = "Sakura Blossom", Price = "$ 950,000" },
+        MV5 = { Name = "Light", Price = "$ 1,250,000" },
+        MV6 = { Name = "Star Guardian", Price = "$ 1,500,000" },
+        MV7 = { Name = "Ice", Price = "$ 1,750,000" },
+        MV15 = { Name = "Flame Breathing", Price = "$ 1,875,000" },
+        MV10 = { Name = "Infinity", Price = "$ 2,150,000" },
+        MV12 = { Name = "Monarch", Price = "$ 2,500,000" },
+        MV11 = { Name = "Vessel", Price = "$ 2,900,000" },
+        MV13 = { Name = "Spectral Reaper", Price = "$ 3,250,000" },
+    }
+
+    -- Ordered keys to match display order
+    local orderedKeys = {
+        "MV1", "MV2", "MV3", "MV9", "MV8", "MV14", "MV5", "MV6", "MV7", "MV15",
+        "MV10", "MV12", "MV11", "MV13"
+    }
+
+    -- Safe reference to AvailableStock (default empty if not found)
+    local availableStock = game:GetService("ReplicatedStorage"):FindFirstChild("AvailableStock")
+    if not availableStock then
+        availableStock = { GetChildren = function() return {} end } -- Mock for empty stock
+        warn("AvailableStock folder not found - using empty stock")
+    end
+
+    -- Create the Shop Tab (this should always succeed)
+    local ShopTab = Window:CreateTab("Shop", "shopping-bag")
+
+    -- Create a Section for organization
+    ShopTab:CreateSection("Purchase Items")
+
+    -- Dropdown reference
+    local ItemDropdown
+
+    -- Function to refresh dropdown with only in-stock items
+    local function refreshDropdown()
+        local availableKeys = {}
+        local children = availableStock:GetChildren()
+        for _, child in ipairs(children) do
+            table.insert(availableKeys, child.Name)
+        end
+
+        -- Sort based on orderedKeys
+        table.sort(availableKeys, function(a, b)
+            local ia = table.find(orderedKeys, a)
+            local ib = table.find(orderedKeys, b)
+            return (ia or math.huge) < (ib or math.huge)
+        end)
+
+        local options = {}
+        for _, key in ipairs(availableKeys) do
+            local data = stockTable[key]
+            if data then
+                table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+            end
+        end
+
+        ItemDropdown:Refresh(options)
+
+        -- Default to first option if none selected
+        if #options > 0 and #ItemDropdown.CurrentOption == 0 then
+            ItemDropdown:Set({options[1]})
+        end
+    end
+
+    -- Create the dropdown (safe callback - check Rayfield exists)
+    ItemDropdown = ShopTab:CreateDropdown({
+        Name = "Select Item",
+        Options = {},
+        CurrentOption = {},
+        MultipleOptions = false,
+        Flag = "ShopItemDropdown",
+        Callback = function(Options)
+            if Options and #Options > 0 and Rayfield then
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Selected: " .. table.concat(Options, ", "),
+                    Duration = 4,
+                    Image = "check"
+                })
+            elseif Rayfield then
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "No item selected.",
+                    Duration = 3,
+                    Image = "info"
+                })
+            end
+            print("Selected item(s):", table.concat(Options or {}, ", ")) -- Fallback print
+        end,
+    })
+
+    -- Initial population
+    refreshDropdown()
+
+    -- Update dropdown when stock changes (safe connections)
+    if availableStock.ChildAdded then
+        availableStock.ChildAdded:Connect(refreshDropdown)
+    end
+    if availableStock.ChildRemoved then
+        availableStock.ChildRemoved:Connect(refreshDropdown)
+    end
+
+    -- Helper to turn "$ 75,000" into 75000
+    local function parsePrice(priceStr)
+        return tonumber(priceStr:gsub("[^%d]", "")) or 0
+    end
+
+    -- Buy button (safe Notify calls)
+    ShopTab:CreateButton({
+        Name = "Buy Selected Item",
+        Callback = function()
+            local selected = ItemDropdown.CurrentOption[1]
+            if not selected then
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "No item selected!",
+                        Duration = 5,
+                        Image = "x-circle"
+                    })
+                end
+                print("No item selected!")
+                return
+            end
+
+            -- Extract key (e.g. MV1) from "Name (MV1) - Price"
+            local key = selected:match("%((.-)%)")
+            if not key then
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "Could not parse item key from selection!",
+                        Duration = 5,
+                        Image = "alert-triangle"
+                    })
+                end
+                print("Could not parse item key!")
+                return
+            end
+
+            local data = stockTable[key]
+            if not data then
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "Item data not found!",
+                        Duration = 5,
+                        Image = "x-circle"
+                    })
+                end
+                print("Item data not found!")
+                return
+            end
+
+            -- Player cash (safe WaitForChild)
+            local success, playerData = pcall(function()
+                return player:WaitForChild("Data", 5) -- 5s timeout
+            end)
+            if not success or not playerData then
+                print("Player Data not found!")
+                return
+            end
+
+            local cashSuccess, playerCash = pcall(function()
+                return playerData:WaitForChild("Cash", 5).Value
+            end)
+            if not cashSuccess then
+                print("Player Cash not found!")
+                return
+            end
+
+            local itemPrice = parsePrice(data.Price)
+            if playerCash < itemPrice then
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "Insufficient funds! Need " .. itemPrice .. " but have " .. playerCash,
+                        Duration = 6,
+                        Image = "alert-octagon"
+                    })
+                end
+                print("Insufficient funds! Need " .. itemPrice .. " but have " .. playerCash)
+                return
+            end
+
+            if QuestEvent then
+                QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "Attempted to buy: " .. data.Name .. " (" .. key .. ")",
+                        Duration = 5,
+                        Image = "shopping-bag"
+                    })
+                end
+                print("Attempted to buy: " .. key .. " (" .. data.Name .. ")")
+
+                -- Refresh after short delay
+                task.spawn(function()
+                    task.wait(0.2)
+                    refreshDropdown()
+                end)
+            else
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "QuestEvent not available!",
+                        Duration = 5,
+                        Image = "x-circle"
+                    })
+                end
+                print("QuestEvent not available!")
+            end
+        end,
+    })
+
+    return ShopTab
+end
