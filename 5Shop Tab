@@ -12,7 +12,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
         "MV10", "MV12", "MV11", "MV13"
     }
 
-    -- Reference to AvailableStock folder (for optional availability check)
+    -- Reference to AvailableStock folder
     local availableStock = game:GetService("ReplicatedStorage"):WaitForChild("AvailableStock")
 
     -- Create the Shop Tab
@@ -21,21 +21,42 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
     -- Create a Section for organization
     ShopTab:CreateSection("Purchase Items")
 
-    -- Build formatted options from stockTable in the exact order (all items available for buy)
-    local options = {}
-    for _, key in ipairs(orderedKeys) do
-        local data = stockTable[key]
-        if data then
-            local availability = availableStock:FindFirstChild(key) and "[Stock] " or ""
-            table.insert(options, availability .. data.Name .. " (" .. key .. ") - " .. data.Price)
+    -- Function to refresh dropdown based on AvailableStock children (only shows in-stock items)
+    local ItemDropdown
+    local function refreshDropdown()
+        local availableKeys = {}
+        for _, child in ipairs(availableStock:GetChildren()) do
+            table.insert(availableKeys, child.Name)
+        end
+
+        -- Sort available keys to match orderedKeys sequence
+        table.sort(availableKeys, function(a, b)
+            local ia = table.find(orderedKeys, a)
+            local ib = table.find(orderedKeys, b)
+            return (ia or math.huge) < (ib or math.huge)
+        end)
+
+        local options = {}
+        for _, key in ipairs(availableKeys) do
+            local data = stockTable[key]
+            if data then
+                table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+            end
+        end
+
+        ItemDropdown:Refresh(options)
+
+        -- Reset to first option if no selection and options available
+        if #options > 0 and #ItemDropdown.CurrentOption == 0 then
+            ItemDropdown:Set({options[1]})
         end
     end
 
-    -- Single dropdown populated with all items from stockTable (in table order)
-    local ItemDropdown = ShopTab:CreateDropdown({
+    -- Initial empty dropdown (will be refreshed immediately after)
+    ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
-        Options = options,
-        CurrentOption = {options[1] or ""},
+        Options = {},
+        CurrentOption = {},
         MultipleOptions = false,
         Flag = "ShopItemDropdown",
         Callback = function(Options)
@@ -43,37 +64,19 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
         end,
     })
 
-    -- Optional: Update availability indicators on stock changes (refreshes options with [Stock] tag)
-    local function updateAvailability()
-        local newOptions = {}
-        for _, key in ipairs(orderedKeys) do
-            local data = stockTable[key]
-            if data then
-                local availability = availableStock:FindFirstChild(key) and "[Stock] " or ""
-                table.insert(newOptions, availability .. data.Name .. " (" .. key .. ") - " .. data.Price)
-            end
-        end
-        ItemDropdown:Refresh(newOptions)
-        -- Preserve selection if possible (find matching option)
-        local currentKey = ItemDropdown.CurrentOption[1]:match("%((%u%w+)%)")
-        if currentKey then
-            for i, opt in ipairs(newOptions) do
-                if opt:match("%(" .. currentKey .. "%)") then
-                    ItemDropdown:Set({opt})
-                    break
-                end
-            end
-        end
-    end
-    availableStock.ChildAdded:Connect(updateAvailability)
-    availableStock.ChildRemoved:Connect(updateAvailability)
+    -- Initial refresh
+    refreshDropdown()
+
+    -- Connect events to update dropdown on stock changes
+    availableStock.ChildAdded:Connect(refreshDropdown)
+    availableStock.ChildRemoved:Connect(refreshDropdown)
 
     -- Helper function to parse price to number (e.g., "$ 75,000" -> 75000)
     local function parsePrice(priceStr)
         return tonumber(priceStr:gsub("[^%d]", ""))
     end
 
-    -- Single button to buy the selected item (works for all via StockBuy)
+    -- Button to buy the selected item
     local BuyButton = ShopTab:CreateButton({
         Name = "Buy Selected Item",
         Callback = function()
@@ -109,10 +112,10 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
             if QuestEvent then
                 QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
                 print("Attempted to buy: " .. key .. " (" .. data.Name .. ")")
-                -- Update availability after buy (in case it affects stock)
+                -- Refresh after buy to remove from dropdown if purchased
                 task.spawn(function()
                     task.wait(0.2)
-                    updateAvailability()
+                    refreshDropdown()
                 end)
             else
                 print("QuestEvent not available!")
