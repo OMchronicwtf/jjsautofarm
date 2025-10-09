@@ -1,94 +1,47 @@
--- ===========================================
--- Shopping Tab (Dynamic Dropdown + Buy)
--- ===========================================
-return function(Window, Event, StockTable)
-    local ShopTab = Window:CreateTab("Shopping 🛒", "shopping-bag")
-    local ShopSection = ShopTab:CreateSection("Item Shop")
+-- =======================
+-- Shop Tab Module
+-- =======================
+local ShopModule = {}
 
-    -- Get AvailableStock folder
-    local AvailableStock = game:GetService("ReplicatedStorage"):WaitForChild("AvailableStock")
+function ShopModule:Init(Window, player, QuestEvent, quests, RunService)
+    -- Create the Shop Tab
+    local ShopTab = Window:CreateTab("Shop", 4483362458) -- Using a default image ID; replace with Lucide icon string like "shopping-bag" if desired
 
-    local selectedItem = nil
-    local itemNames = {}
-    local availableItems = {} -- store displayName -> key for lookup
+    -- Create a Section for organization
+    local Section = ShopTab:CreateSection("Shop Features")
 
-    -- Helper to build options
-    local function buildOptions()
-        itemNames = {}
-        availableItems = {}
-        if not StockTable or type(StockTable) ~= "table" then
-            return
-        end
-        for key, item in pairs(StockTable) do
-            if not item or not item.Name or not item.Price then
-                continue
-            end
-            if AvailableStock:FindFirstChild(key) then
-                local displayName = item.Name .. " - " .. item.Price
-                table.insert(itemNames, displayName)
-                availableItems[displayName] = key
-            end
-        end
-        -- Sort dropdown in table order (MV1 → MV15)
-        table.sort(itemNames, function(a, b)
-            local numA = tonumber(availableItems[a]:match("%d+")) or 0
-            local numB = tonumber(availableItems[b]:match("%d+")) or 0
-            return numA < numB
-        end)
-    end
-
-    buildOptions()
-
-    -- Create dropdown
+    -- Simple Dropdown (button-like) - Currently empty options, as requested
     local ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
-        Options = itemNames,
-        CurrentOption = itemNames[1] and {itemNames[1]} or {},
+        Options = {}, -- Empty for now, as it "doesnt currently have anything yet"
+        CurrentOption = {},
         MultipleOptions = false,
-        Flag = "ShopDropdown",
-        Callback = function(option)
-            selectedItem = option[1]
+        Flag = "ShopItemDropdown",
+        Callback = function(Options)
+            -- Placeholder callback; add shop logic here later (e.g., set selected item)
+            print("Selected item(s):", table.concat(Options, ", "))
         end,
     })
 
-    -- Optional: Refresh if stock changes (e.g., connect to child removed/added if needed)
-    -- For now, rebuild on load
-
-    -- Buy button
-    ShopTab:CreateButton({
+    -- Button underneath the Dropdown
+    local BuyButton = ShopTab:CreateButton({
         Name = "Buy Selected Item",
         Callback = function()
-            if not selectedItem or not availableItems[selectedItem] then
-                Rayfield:Notify({
-                    Title = "Error",
-                    Content = "No item selected or item not available!",
-                    Duration = 5,
-                    Image = "x"
-                })
-                return
-            end
-
-            local itemId = availableItems[selectedItem]
-
-            Event:FireServer({
-                Item = itemId,
-                Type = "StockBuy"
-            })
-
+            -- Placeholder callback; add actual buy logic here later (e.g., fire remote with selected item)
+            local selected = ItemDropdown.CurrentOption[1] or "None"
             Rayfield:Notify({
-                Title = "Success",
-                Content = "Purchased: " .. selectedItem,
-                Duration = 5,
-                Image = "shopping-cart"
+                Title = "Shop Action",
+                Content = "Attempted to buy: " .. selected .. " (Placeholder)",
+                Duration = 3,
+                Image = 4483362458, -- Default image
             })
-
-            -- Optional: Rebuild options after purchase (removes bought item if server removes from AvailableStock)
-            task.wait(0.5) -- Give server time to update
-            buildOptions()
-            ItemDropdown:Refresh(itemNames)
-            selectedItem = nil -- Reset selection
-        end
+        end,
     })
 
-    return ShopTab
+    -- Optional: Add a divider or label if needed later
+    -- ShopTab:CreateDivider()
+
+    return ShopTab -- Return the tab reference if needed by main script
 end
+
+return ShopModule:Init
