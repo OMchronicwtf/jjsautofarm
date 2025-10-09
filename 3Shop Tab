@@ -57,11 +57,11 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
                 return
             end
 
-            if serverEvent then
-                serverEvent:InvokeServer({ Arg = "BuyMove", Move = key })
+            if QuestEvent then
+                QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
                 print("Attempted to buy: " .. key .. " (" .. stockTable[key].Name .. ")")
             else
-                print("Server event not available!")
+                print("QuestEvent not available!")
             end
         end,
     })
