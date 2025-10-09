@@ -1,22 +1,17 @@
 -- ShopTabModule.lua
 
 return function(Window, StockTable, Event)
-    -- Create Shop Tab
-    local ShopTab = Window:CreateTab("Shop", 4483362458) -- 4483362458 is a Lucide icon ID, change if needed
-
-    -- Create Shop Section
+    local ShopTab = Window:CreateTab("Shop", 4483362458) -- Lucide icon, change if needed
     local ShopSection = ShopTab:CreateSection("Stock Items")
 
-    -- Prepare dropdown options from StockTable
+    -- Prepare dropdown options
     local dropdownOptions = {}
     for key, item in pairs(StockTable) do
         table.insert(dropdownOptions, key .. " | " .. item.Name .. " - " .. item.Price)
     end
 
-    -- Selected item storage
     local selectedItem = nil
 
-    -- Create dropdown
     local ItemDropdown = ShopSection:CreateDropdown({
         Name = "Select Item",
         Options = dropdownOptions,
@@ -24,16 +19,14 @@ return function(Window, StockTable, Event)
         MultipleOptions = false,
         Flag = "ShopDropdown",
         Callback = function(option)
-            -- Extract the MV key from selection
             selectedItem = option:match("^(%w+)")
-        end,
+        end
     })
 
-    -- Create Purchase button
-    local PurchaseButton = ShopSection:CreateButton({
+    ShopSection:CreateButton({
         Name = "Purchase",
         Callback = function()
-            if selectedItem then
+            if selectedItem and StockTable[selectedItem] then
                 Event:FireServer({
                     Item = selectedItem,
                     Type = "StockBuy"
@@ -52,7 +45,7 @@ return function(Window, StockTable, Event)
                     Image = "alert-circle"
                 })
             end
-        end,
+        end
     })
 
     return ShopTab
