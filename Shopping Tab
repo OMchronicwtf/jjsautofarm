@@ -5,8 +5,6 @@ return function(Window, QuestEvent, stockTable, Rayfield)
     local ShopTab = Window:CreateTab("Shopping 🛒", "shopping-bag")
     local ShopSection = ShopTab:CreateSection("Item Shop")
 
-    local AvailableStock = game:GetService("ReplicatedStorage"):WaitForChild("AvailableStock")
-
     -- Static label above dropdown
     ShopSection:CreateLabel("Select an item to purchase:")
 
@@ -16,38 +14,20 @@ return function(Window, QuestEvent, stockTable, Rayfield)
         "MV7","MV15","MV10","MV12","MV11","MV13"
     }
 
+    -- Prepare dropdown options
     local itemNames = {}
-    local availableItems = {} -- mapping displayName -> key
-    local selectedItem = nil
-    local ItemDropdown = nil
-
-    -- Function to build/rebuild dropdown options
-    local function RefreshDropdown()
-        itemNames = {}
-        availableItems = {}
-
-        for _, key in ipairs(orderedKeys) do
-            local item = stockTable[key]
-            if AvailableStock:FindFirstChild(key) then
-                local displayName = item.Name .. " - " .. item.Price
-                table.insert(itemNames, displayName)
-                availableItems[displayName] = key
-            end
-        end
-
-        selectedItem = itemNames[1] or nil
-
-        if ItemDropdown then
-            ItemDropdown:Set({})
-            ItemDropdown:Refresh(itemNames)
-            if selectedItem then
-                ItemDropdown:Set({selectedItem})
-            end
-        end
+    local itemMap = {} -- mapping displayName -> key
+    for _, key in ipairs(orderedKeys) do
+        local item = stockTable[key]
+        local displayName = item.Name .. " - " .. item.Price
+        table.insert(itemNames, displayName)
+        itemMap[displayName] = key
     end
 
+    local selectedItem = itemNames[1]
+
     -- Create dropdown
-    ItemDropdown = ShopSection:CreateDropdown({
+    local ItemDropdown = ShopSection:CreateDropdown({
         Name = "Select Item",
         Options = itemNames,
         CurrentOption = {selectedItem},
@@ -58,24 +38,21 @@ return function(Window, QuestEvent, stockTable, Rayfield)
         end,
     })
 
-    -- Initial population
-    RefreshDropdown()
-
     -- Buy button
     ShopSection:CreateButton({
         Name = "Buy Selected Item",
         Callback = function()
-            if not selectedItem or not availableItems[selectedItem] then
+            if not selectedItem or not itemMap[selectedItem] then
                 Rayfield:Notify({
                     Title = "Error",
-                    Content = "No item selected or item not available!",
+                    Content = "No item selected!",
                     Duration = 5,
                     Image = "x"
                 })
                 return
             end
 
-            local itemId = availableItems[selectedItem]
+            local itemId = itemMap[selectedItem]
 
             QuestEvent:FireServer({
                 Item = itemId,
@@ -90,8 +67,4 @@ return function(Window, QuestEvent, stockTable, Rayfield)
             })
         end,
     })
-
-    -- Auto-refresh dropdown on stock changes
-    AvailableStock.ChildAdded:Connect(RefreshDropdown)
-    AvailableStock.ChildRemoved:Connect(RefreshDropdown)
 end
