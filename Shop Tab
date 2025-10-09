@@ -9,8 +9,11 @@ return function(Window, Event, StockTable)
     -- Helper function to build dropdown options based on available stock
     local function getAvailableItems()
         local options = {}
+        if not StockTable or type(StockTable) ~= "table" then
+            return options -- Return empty if no stock
+        end
         for _, item in ipairs(StockTable) do
-            if item.Available then -- assumes each item in StockTable has Available = true/false
+            if item and item.Available then -- assumes each item in StockTable has Available = true/false
                 table.insert(options, item.Name .. " | " .. item.DisplayName)
             end
         end
@@ -48,11 +51,13 @@ return function(Window, Event, StockTable)
                     Type = "StockBuy"
                 })
 
-                -- Mark item as unavailable locally
-                for _, item in ipairs(StockTable) do
-                    if item.Name == selectedItem then
-                        item.Available = false
-                        break
+                -- Mark item as unavailable locally (only if StockTable exists)
+                if StockTable then
+                    for _, item in ipairs(StockTable) do
+                        if item and item.Name == selectedItem then
+                            item.Available = false
+                            break
+                        end
                     end
                 end
 
@@ -75,8 +80,7 @@ return function(Window, Event, StockTable)
         end
     })
 
-    -- Optional: listen to changes in StockTable if updated externally
-    -- If you have an event or loop to detect stock changes, just call `updateDropdown()` whenever stock changes
+    -- Optional: If StockTable is updated externally, call updateDropdown() here
 
     return ShopTab
 end
