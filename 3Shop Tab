@@ -12,26 +12,51 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
         "MV10", "MV12", "MV11", "MV13"
     }
 
+    -- Reference to AvailableStock folder
+    local availableStock = game:GetService("ReplicatedStorage"):WaitForChild("AvailableStock")
+
     -- Create the Shop Tab
     local ShopTab = Window:CreateTab("Shop", "shopping-bag") -- Using Lucide icon for shop theme
 
     -- Create a Section for organization
-    ShopTab:CreateSection("Shop Features")
+    ShopTab:CreateSection("Purchase Items")
 
-    -- Build formatted options from stockTable in the exact order of the table
-    local options = {}
-    for _, key in ipairs(orderedKeys) do
-        local data = stockTable[key]
-        if data then
-            table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+    -- Function to refresh dropdown based on AvailableStock children
+    local ItemDropdown
+    local function refreshDropdown()
+        local availableKeys = {}
+        for _, child in ipairs(availableStock:GetChildren()) do
+            table.insert(availableKeys, child.Name)
+        end
+
+        -- Sort available keys to match orderedKeys sequence
+        table.sort(availableKeys, function(a, b)
+            local ia = table.find(orderedKeys, a)
+            local ib = table.find(orderedKeys, b)
+            return (ia or math.huge) < (ib or math.huge)
+        end)
+
+        local options = {}
+        for _, key in ipairs(availableKeys) do
+            local data = stockTable[key]
+            if data then
+                table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+            end
+        end
+
+        ItemDropdown:Refresh(options)
+
+        -- Reset to first option if no selection and options available
+        if #options > 0 and #ItemDropdown.CurrentOption == 0 then
+            ItemDropdown:Set({options[1]})
         end
     end
 
-    -- Dropdown populated with all items from stockTable (in table order)
-    local ItemDropdown = ShopTab:CreateDropdown({
+    -- Initial empty dropdown (will be refreshed immediately after)
+    ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
-        Options = options,
-        CurrentOption = {options[1] or ""},
+        Options = {},
+        CurrentOption = {},
         MultipleOptions = false,
         Flag = "ShopItemDropdown",
         Callback = function(Options)
@@ -39,6 +64,13 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
             print("Selected item(s):", table.concat(Options, ", "))
         end,
     })
+
+    -- Initial refresh
+    refreshDropdown()
+
+    -- Connect events to update dropdown on stock changes
+    availableStock.ChildAdded:Connect(refreshDropdown)
+    availableStock.ChildRemoved:Connect(refreshDropdown)
 
     -- Button to buy the selected item
     local BuyButton = ShopTab:CreateButton({
