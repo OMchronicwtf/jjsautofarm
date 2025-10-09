@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (Fixed)
+-- Shop Tab Module (Patched)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent)
@@ -54,7 +54,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
         end
     end
 
-    -- Create the dropdown
+    -- Create the dropdown (with safe callback)
     ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
         Options = {},
@@ -62,7 +62,21 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
         MultipleOptions = false,
         Flag = "ShopItemDropdown",
         Callback = function(Options)
-            print("Selected item(s):", table.concat(Options, ", "))
+            if Options and #Options > 0 then
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Selected: " .. table.concat(Options, ", "),
+                    Duration = 4,
+                    Image = "check"
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "No item selected.",
+                    Duration = 3,
+                    Image = "info"
+                })
+            end
         end,
     })
 
