@@ -1,12 +1,11 @@
--- ShoppingModule.lua 1.5
+-- 3 Shopping Tab.lua
 -- Returns a function to create the Shopping tab
 return function(Window, QuestEvent, stockTable, Rayfield)
     -- Create tab and section
     local ShopTab = Window:CreateTab("Shopping 🛒", "shopping-bag")
     local ShopSection = ShopTab:CreateSection("Item Shop")
 
-    -- Static label above dropdown
-    ShopSection:CreateLabel("Select an item to purchase:")
+    local AvailableStock = game:GetService("ReplicatedStorage"):WaitForChild("AvailableStock")
 
     -- Define StockTable order explicitly
     local orderedKeys = {
@@ -14,27 +13,22 @@ return function(Window, QuestEvent, stockTable, Rayfield)
         "MV7","MV15","MV10","MV12","MV11","MV13"
     }
 
-    -- Prepare dropdown options
     local itemNames = {}
-    local itemMap = {} -- mapping displayName -> key
+    local availableItems = {} -- mapping from displayName -> itemId
+
+    -- Build dropdown based on order and availability
     for _, key in ipairs(orderedKeys) do
         local item = stockTable[key]
-        if item and item.Name and item.Price then
+        if AvailableStock:FindFirstChild(key) then
             local displayName = item.Name .. " - " .. item.Price
             table.insert(itemNames, displayName)
-            itemMap[displayName] = key
+            availableItems[displayName] = key
         end
-    end
-
-    if #itemNames == 0 then
-        ShopSection:CreateLabel("No items available in stock.")
-        return
     end
 
     local selectedItem = itemNames[1]
 
-    -- Create dropdown
-    local ItemDropdown = ShopSection:CreateDropdown({
+    local ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
         Options = itemNames,
         CurrentOption = {selectedItem},
@@ -46,20 +40,20 @@ return function(Window, QuestEvent, stockTable, Rayfield)
     })
 
     -- Buy button
-    ShopSection:CreateButton({
+    ShopTab:CreateButton({
         Name = "Buy Selected Item",
         Callback = function()
-            if not selectedItem or not itemMap[selectedItem] then
+            if not selectedItem or not availableItems[selectedItem] then
                 Rayfield:Notify({
                     Title = "Error",
-                    Content = "No item selected!",
+                    Content = "No item selected or item not available!",
                     Duration = 5,
                     Image = "x"
                 })
                 return
             end
 
-            local itemId = itemMap[selectedItem]
+            local itemId = availableItems[selectedItem]
 
             QuestEvent:FireServer({
                 Item = itemId,
