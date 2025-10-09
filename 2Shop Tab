@@ -38,7 +38,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     local ShopTab = Window:CreateTab("Shop", "shopping-bag")
 
     -- Create a Section for organization
-    ShopTab:CreateSection("Purchase Items")
+    ShopTab:CreateSection("Purchase Movesets")
 
     -- Dropdown reference
     local ItemDropdown
@@ -76,7 +76,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
 
     -- Create the dropdown (safe callback - check Rayfield exists)
     ItemDropdown = ShopTab:CreateDropdown({
-        Name = "Select Item",
+        Name = "Current Stock",
         Options = {},
         CurrentOption = {},
         MultipleOptions = false,
