@@ -1,90 +1,82 @@
--- =======================
--- Main Rayfield Script
--- =======================
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({
-    Name = "Jututsu Seas",
-    LoadingTitle = "C'sHUB",
-    LoadingSubtitle = "by @wtfchronic",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "CJJSA",
-        FileName = "Config"
-    },
-    Discord = { Enabled = false },
-    KeySystem = false
-})
+-- ShopTabModule.lua
+return function(Window, Event, StockTable)
+    -- Create Shop Tab
+    local ShopTab = Window:CreateTab("Shop", "shopping-cart")
+    local ShopSection = ShopTab:CreateSection("Shop") -- visual only
 
--- Player & Services
-local player = game.Players.LocalPlayer
-local QuestEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Compliments
-local RunService = game:GetService("RunService")
+    local selectedItem = nil
 
--- Quest, Teleports, Enemies, Stats
-local quests = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Quest%20Table"))()
-local teleportZones = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Teleport%20Zones%20Table"))()
-local enemyTable = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Enemy%20Table"))()
-local statsTable = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Stats%20Table"))()
+    -- Helper function to build dropdown options based on available stock
+    local function getAvailableItems()
+        local options = {}
+        for _, item in ipairs(StockTable) do
+            if item.Available then -- assumes each item in StockTable has Available = true/false
+                table.insert(options, item.Name .. " | " .. item.DisplayName)
+            end
+        end
+        return options
+    end
 
--- =======================
--- Main Tab
--- =======================
-local MainModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Main%20Tab"))()
-local MainTab = MainModule(Window, player, QuestEvent, quests, RunService)
-
--- =======================
--- Farming Tab
--- =======================
-local FarmModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Farming%20Tab"))()
-local FarmTab = FarmModule(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
-
--- =======================
--- Shop Tab
--- =======================
-local ShopModule = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Shop%20Tab"))()
-local ShopTab = ShopModule(Window, QuestEvent)
-
--- =======================
--- Stats Tab (Dynamic)
--- =======================
-local StatsTab = Window:CreateTab("Stats", "bar-chart")
-
-StatsTab:CreateSection("Upgrade Stats")
-
--- Loop through stats table
-for _, stat in ipairs(statsTable) do
-    -- Current stat level
-    local statValue = player:WaitForChild("Data"):FindFirstChild(stat.Name)
-    if not statValue then continue end
-
-    -- Create dropdown for each stat
-    StatsTab:CreateDropdown({
-        Name = stat.DisplayName,
-        Options = stat.Options, -- each stat has Options table
-        CurrentOption = {tostring(statValue.Value)},
+    -- Create dropdown
+    local ItemDropdown = ShopTab:CreateDropdown({
+        Name = "Select Item",
+        Options = getAvailableItems(),
+        CurrentOption = {},
         MultipleOptions = false,
-        Flag = "Stat_"..stat.Name,
+        Flag = "ShopDropdown",
         Callback = function(option)
-            local newValue = tonumber(option[1])
-            if newValue then
-                -- Fire server to upgrade stat dynamically
-                QuestEvent:FireServer({
-                    Type = "UpgradeStat",
-                    Stat = stat.Name,
-                    Value = newValue
+            selectedItem = option[1]:match("^(%w+)")
+        end
+    })
+
+    -- Update dropdown dynamically whenever stock changes
+    local function updateDropdown()
+        local options = getAvailableItems()
+        ItemDropdown:Refresh(options)
+        if selectedItem and not table.find(options, selectedItem) then
+            selectedItem = nil
+        end
+    end
+
+    -- Purchase button
+    ShopTab:CreateButton({
+        Name = "Purchase",
+        Callback = function()
+            if selectedItem then
+                Event:FireServer({
+                    Item = selectedItem,
+                    Type = "StockBuy"
+                })
+
+                -- Mark item as unavailable locally
+                for _, item in ipairs(StockTable) do
+                    if item.Name == selectedItem then
+                        item.Available = false
+                        break
+                    end
+                end
+
+                updateDropdown()
+
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Purchased: " .. selectedItem,
+                    Duration = 4,
+                    Image = "shopping-cart"
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "No item selected or item unavailable!",
+                    Duration = 4,
+                    Image = "alert-circle"
                 })
             end
         end
     })
+
+    -- Optional: listen to changes in StockTable if updated externally
+    -- If you have an event or loop to detect stock changes, just call `updateDropdown()` whenever stock changes
+
+    return ShopTab
 end
-
--- =======================
--- Info Tab
--- =======================
-local InfoTabModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/Info%20Tab"))()
-local InfoTab = InfoTabModule(Window, player, RunService)
-
--- =======================
--- Load Configuration
--- =======================
-Rayfield:LoadConfiguration()
