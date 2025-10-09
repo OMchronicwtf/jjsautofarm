@@ -1,7 +1,7 @@
 -- ShopTabModule.lua
 return function(Window, Event)
     local ShopTab = Window:CreateTab("Shop", "shopping-cart")
-    local ShopSection = ShopTab:CreateSection("Shop") -- ✅ section
+    local ShopSection = ShopTab:CreateSection("Shop") -- Section is fine for visuals, but don't create elements on it
 
     local dropdownOptions = {
         "MV1 | Explosive Bomb",
@@ -22,7 +22,8 @@ return function(Window, Event)
 
     local selectedItem = nil
 
-    ShopSection:CreateDropdown({
+    -- Create on Tab, not Section
+    ShopTab:CreateDropdown({
         Name = "Select Item",
         Options = dropdownOptions,
         CurrentOption = {},
@@ -33,7 +34,8 @@ return function(Window, Event)
         end
     })
 
-    ShopSection:CreateButton({
+    -- Create on Tab, not Section
+    ShopTab:CreateButton({
         Name = "Purchase",
         Callback = function()
             if selectedItem then
