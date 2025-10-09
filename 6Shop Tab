@@ -1,12 +1,12 @@
 -- =======================
--- Shop Tab Module
+-- Shop Tab Module (Fixed)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent)
-    -- Load stockTable locally within this module
+    -- Load stockTable from repo
     local stockTable = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Stock%20Table"))()
 
-    -- Ordered keys to match the exact sequence in the stockTable definition
+    -- Ordered keys to match display order
     local orderedKeys = {
         "MV1", "MV2", "MV3", "MV9", "MV8", "MV14", "MV5", "MV6", "MV7", "MV15",
         "MV10", "MV12", "MV11", "MV13"
@@ -16,20 +16,22 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
     local availableStock = game:GetService("ReplicatedStorage"):WaitForChild("AvailableStock")
 
     -- Create the Shop Tab
-    local ShopTab = Window:CreateTab("Shop", "shopping-bag") -- Using Lucide icon for shop theme
+    local ShopTab = Window:CreateTab("Shop", "shopping-bag")
 
     -- Create a Section for organization
     ShopTab:CreateSection("Purchase Items")
 
-    -- Function to refresh dropdown based on AvailableStock children (only shows in-stock items)
+    -- Dropdown reference
     local ItemDropdown
+
+    -- Function to refresh dropdown with only in-stock items
     local function refreshDropdown()
         local availableKeys = {}
         for _, child in ipairs(availableStock:GetChildren()) do
             table.insert(availableKeys, child.Name)
         end
 
-        -- Sort available keys to match orderedKeys sequence
+        -- Sort based on orderedKeys
         table.sort(availableKeys, function(a, b)
             local ia = table.find(orderedKeys, a)
             local ib = table.find(orderedKeys, b)
@@ -46,13 +48,13 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
 
         ItemDropdown:Refresh(options)
 
-        -- Reset to first option if no selection and options available
+        -- Default to first option if none selected
         if #options > 0 and #ItemDropdown.CurrentOption == 0 then
             ItemDropdown:Set({options[1]})
         end
     end
 
-    -- Initial empty dropdown (will be refreshed immediately after)
+    -- Create the dropdown
     ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
         Options = {},
@@ -64,64 +66,95 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
         end,
     })
 
-    -- Initial refresh
+    -- Initial population
     refreshDropdown()
 
-    -- Connect events to update dropdown on stock changes
+    -- Update dropdown when stock changes
     availableStock.ChildAdded:Connect(refreshDropdown)
     availableStock.ChildRemoved:Connect(refreshDropdown)
 
-    -- Helper function to parse price to number (e.g., "$ 75,000" -> 75000)
+    -- Helper to turn "$ 75,000" into 75000
     local function parsePrice(priceStr)
-        return tonumber(priceStr:gsub("[^%d]", ""))
+        return tonumber(priceStr:gsub("[^%d]", "")) or 0
     end
 
-    -- Button to buy the selected item
-    local BuyButton = ShopTab:CreateButton({
+    -- Buy button
+    ShopTab:CreateButton({
         Name = "Buy Selected Item",
         Callback = function()
             local selected = ItemDropdown.CurrentOption[1]
             if not selected then
-                print("No item selected!")
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "No item selected!",
+                    Duration = 5,
+                    Image = "x-circle"
+                })
                 return
             end
 
-            -- Parse the key (e.g., "MV1") from the formatted option
-            local key = selected:match("%((%u%w+)%)")
+            -- Extract key (e.g. MV1) from "Name (MV1) - Price"
+            local key = selected:match("%((.-)%)")
             if not key then
-                print("Could not parse item key from selection!")
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Could not parse item key from selection!",
+                    Duration = 5,
+                    Image = "alert-triangle"
+                })
                 return
             end
 
             local data = stockTable[key]
             if not data then
-                print("Item data not found!")
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Item data not found!",
+                    Duration = 5,
+                    Image = "x-circle"
+                })
                 return
             end
 
-            -- Get player's cash
+            -- Player cash
             local playerData = player:WaitForChild("Data")
             local playerCash = playerData:WaitForChild("Cash").Value
 
             local itemPrice = parsePrice(data.Price)
             if playerCash < itemPrice then
-                print("Insufficient funds! Need " .. itemPrice .. " but have " .. playerCash)
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Insufficient funds! Need " .. itemPrice .. " but have " .. playerCash,
+                    Duration = 6,
+                    Image = "alert-octagon"
+                })
                 return
             end
 
             if QuestEvent then
                 QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
-                print("Attempted to buy: " .. key .. " (" .. data.Name .. ")")
-                -- Refresh after buy to remove from dropdown if purchased
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Attempted to buy: " .. data.Name .. " (" .. key .. ")",
+                    Duration = 5,
+                    Image = "shopping-bag"
+                })
+
+                -- Refresh after short delay
                 task.spawn(function()
                     task.wait(0.2)
                     refreshDropdown()
                 end)
             else
-                print("QuestEvent not available!")
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "QuestEvent not available!",
+                    Duration = 5,
+                    Image = "x-circle"
+                })
             end
         end,
     })
 
-    return ShopTab -- Return the tab reference to match other modules
+    return ShopTab
 end
