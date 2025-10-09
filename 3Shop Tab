@@ -4,7 +4,7 @@
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent)
     -- Load stockTable locally within this module
-    local stockTable = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/1Shop%20Tab"))()
+    local stockTable = loadstring(game:HttpGet("https://raw.githubusercontent.com/OMchronicwtf/jjsautofarm/refs/heads/main/3Shop%20Tab"))()
 
     -- Create the Shop Tab
     local ShopTab = Window:CreateTab("Shop", "shopping-bag") -- Using Lucide icon for shop theme
