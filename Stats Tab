@@ -36,7 +36,7 @@ return function(Window, QuestEvent, player, RunService)
     -- =======================
     -- Auto Apply Stats Section
     -- =======================
-    StatsTab:CreateSection("Auto Apply Stats")
+    StatsTab:CreateSection("Auto Apply Points")
     local selectedAutoStats = {statOptions[1]}
     local autoPoints = 0
     local autoApplyEnabled = false
