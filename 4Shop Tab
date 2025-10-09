@@ -54,7 +54,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
 
     -- Initial empty dropdown (will be refreshed immediately after)
     ItemDropdown = ShopTab:CreateDropdown({
-        Name = "Current Stock",
+        Name = "Select Item",
         Options = {},
         CurrentOption = {},
         MultipleOptions = false,
@@ -72,6 +72,11 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
     availableStock.ChildAdded:Connect(refreshDropdown)
     availableStock.ChildRemoved:Connect(refreshDropdown)
 
+    -- Helper function to parse price to number (e.g., "$ 75,000" -> 75000)
+    local function parsePrice(priceStr)
+        return tonumber(priceStr:gsub("[^%d]", ""))
+    end
+
     -- Button to buy the selected item
     local BuyButton = ShopTab:CreateButton({
         Name = "Buy Selected Item",
@@ -86,6 +91,25 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
             local key = selected:match("%((%u%w+)%)")
             if not key then
                 print("Could not parse item key from selection!")
+                return
+            end
+
+            local data = stockTable[key]
+            if not data then
+                print("Item data not found!")
+                return
+            end
+
+            -- Get player's money (assuming player.Data.Money.Value; adjust path if different)
+            local playerData = player:WaitForChild("Data")
+            local playerMoney = playerData:WaitForChild("Money").Value
+
+            local itemPrice = parsePrice(data.Price)
+            if playerMoney < itemPrice then
+                -- Notify user of insufficient funds (using print for now; pass Rayfield to module for Notify)
+                print("Insufficient funds! Need " .. itemPrice .. " but have " .. playerMoney)
+                -- TODO: For Rayfield Notify, update main script to pass Rayfield as param, e.g., ShopModule(..., Rayfield)
+                -- Then: Rayfield:Notify({Title = "Shop Error", Content = "Insufficient funds! Need " .. itemPrice .. " but have " .. playerMoney, Duration = 3})
                 return
             end
 
