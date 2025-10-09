@@ -1,86 +1,94 @@
--- ShopTabModule.lua
+-- ===========================================
+-- Shopping Tab (Dynamic Dropdown + Buy)
+-- ===========================================
 return function(Window, Event, StockTable)
-    -- Create Shop Tab
-    local ShopTab = Window:CreateTab("Shop", "shopping-cart")
-    local ShopSection = ShopTab:CreateSection("Shop") -- visual only
+    local ShopTab = Window:CreateTab("Shopping 🛒", "shopping-bag")
+    local ShopSection = ShopTab:CreateSection("Item Shop")
+
+    -- Get AvailableStock folder
+    local AvailableStock = game:GetService("ReplicatedStorage"):WaitForChild("AvailableStock")
 
     local selectedItem = nil
+    local itemNames = {}
+    local availableItems = {} -- store displayName -> key for lookup
 
-    -- Helper function to build dropdown options based on available stock
-    local function getAvailableItems()
-        local options = {}
+    -- Helper to build options
+    local function buildOptions()
+        itemNames = {}
+        availableItems = {}
         if not StockTable or type(StockTable) ~= "table" then
-            return options -- Return empty if no stock
+            return
         end
-        for _, item in ipairs(StockTable) do
-            if item and item.Available then -- assumes each item in StockTable has Available = true/false
-                table.insert(options, item.Name .. " | " .. item.DisplayName)
+        for key, item in pairs(StockTable) do
+            if not item or not item.Name or not item.Price then
+                continue
+            end
+            if AvailableStock:FindFirstChild(key) then
+                local displayName = item.Name .. " - " .. item.Price
+                table.insert(itemNames, displayName)
+                availableItems[displayName] = key
             end
         end
-        return options
+        -- Sort dropdown in table order (MV1 → MV15)
+        table.sort(itemNames, function(a, b)
+            local numA = tonumber(availableItems[a]:match("%d+")) or 0
+            local numB = tonumber(availableItems[b]:match("%d+")) or 0
+            return numA < numB
+        end)
     end
+
+    buildOptions()
 
     -- Create dropdown
     local ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
-        Options = getAvailableItems(),
-        CurrentOption = {},
+        Options = itemNames,
+        CurrentOption = itemNames[1] and {itemNames[1]} or {},
         MultipleOptions = false,
         Flag = "ShopDropdown",
         Callback = function(option)
-            selectedItem = option[1]:match("^(%w+)")
-        end
+            selectedItem = option[1]
+        end,
     })
 
-    -- Update dropdown dynamically whenever stock changes
-    local function updateDropdown()
-        local options = getAvailableItems()
-        ItemDropdown:Refresh(options)
-        if selectedItem and not table.find(options, selectedItem) then
-            selectedItem = nil
-        end
-    end
+    -- Optional: Refresh if stock changes (e.g., connect to child removed/added if needed)
+    -- For now, rebuild on load
 
-    -- Purchase button
+    -- Buy button
     ShopTab:CreateButton({
-        Name = "Purchase",
+        Name = "Buy Selected Item",
         Callback = function()
-            if selectedItem then
-                Event:FireServer({
-                    Item = selectedItem,
-                    Type = "StockBuy"
-                })
-
-                -- Mark item as unavailable locally (only if StockTable exists)
-                if StockTable then
-                    for _, item in ipairs(StockTable) do
-                        if item and item.Name == selectedItem then
-                            item.Available = false
-                            break
-                        end
-                    end
-                end
-
-                updateDropdown()
-
+            if not selectedItem or not availableItems[selectedItem] then
                 Rayfield:Notify({
-                    Title = "Shop",
-                    Content = "Purchased: " .. selectedItem,
-                    Duration = 4,
-                    Image = "shopping-cart"
+                    Title = "Error",
+                    Content = "No item selected or item not available!",
+                    Duration = 5,
+                    Image = "x"
                 })
-            else
-                Rayfield:Notify({
-                    Title = "Shop",
-                    Content = "No item selected or item unavailable!",
-                    Duration = 4,
-                    Image = "alert-circle"
-                })
+                return
             end
+
+            local itemId = availableItems[selectedItem]
+
+            Event:FireServer({
+                Item = itemId,
+                Type = "StockBuy"
+            })
+
+            Rayfield:Notify({
+                Title = "Success",
+                Content = "Purchased: " .. selectedItem,
+                Duration = 5,
+                Image = "shopping-cart"
+            })
+
+            -- Optional: Rebuild options after purchase (removes bought item if server removes from AvailableStock)
+            task.wait(0.5) -- Give server time to update
+            buildOptions()
+            ItemDropdown:Refresh(itemNames)
+            selectedItem = nil -- Reset selection
         end
     })
-
-    -- Optional: If StockTable is updated externally, call updateDropdown() here
 
     return ShopTab
 end
