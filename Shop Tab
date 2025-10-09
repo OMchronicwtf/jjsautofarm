@@ -1,16 +1,15 @@
 -- =======================
 -- Shop Tab Module
 -- =======================
-local ShopModule = {}
 
-function ShopModule:Init(Window, player, QuestEvent, quests, RunService)
+return function(Window, player, QuestEvent, quests, RunService)
     -- Create the Shop Tab
-    local ShopTab = Window:CreateTab("Shop", 4483362458) -- Using a default image ID; replace with Lucide icon string like "shopping-bag" if desired
+    local ShopTab = Window:CreateTab("Shop", "shopping-bag") -- Using Lucide icon for shop theme
 
     -- Create a Section for organization
-    local Section = ShopTab:CreateSection("Shop Features")
+    ShopTab:CreateSection("Shop Features")
 
-    -- Simple Dropdown (button-like) - Currently empty options, as requested
+    -- Simple Dropdown - Currently empty options, as requested
     local ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
         Options = {}, -- Empty for now, as it "doesnt currently have anything yet"
@@ -29,19 +28,13 @@ function ShopModule:Init(Window, player, QuestEvent, quests, RunService)
         Callback = function()
             -- Placeholder callback; add actual buy logic here later (e.g., fire remote with selected item)
             local selected = ItemDropdown.CurrentOption[1] or "None"
-            Rayfield:Notify({
-                Title = "Shop Action",
-                Content = "Attempted to buy: " .. selected .. " (Placeholder)",
-                Duration = 3,
-                Image = 4483362458, -- Default image
-            })
+            print("Attempted to buy: " .. selected .. " (Placeholder)")
+            -- Note: To add a notification later, pass Rayfield as a param to this module and use it here
         end,
     })
 
-    -- Optional: Add a divider or label if needed later
+    -- Optional: Add a divider if needed later
     -- ShopTab:CreateDivider()
 
-    return ShopTab -- Return the tab reference if needed by main script
+    return ShopTab -- Return the tab reference to match other modules
 end
-
-return ShopModule:Init
