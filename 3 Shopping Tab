@@ -5,9 +5,6 @@ return function(Window, QuestEvent, stockTable, Rayfield)
     local ShopTab = Window:CreateTab("Shopping 🛒", "shopping-bag")
     local ShopSection = ShopTab:CreateSection("Item Shop")
 
-    -- Static label above dropdown
-    ShopSection:CreateLabel("Select an item to purchase:")
-
     -- Define StockTable order explicitly
     local orderedKeys = {
         "MV1","MV2","MV3","MV9","MV8","MV14","MV5","MV6",
