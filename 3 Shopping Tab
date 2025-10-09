@@ -1,33 +1,39 @@
--- ShoppingModule.lua
+-- ShoppingModule.lua 1.5
 -- Returns a function to create the Shopping tab
 return function(Window, QuestEvent, stockTable, Rayfield)
+    -- Create tab and section
     local ShopTab = Window:CreateTab("Shopping 🛒", "shopping-bag")
     local ShopSection = ShopTab:CreateSection("Item Shop")
 
-    local AvailableStock = game:GetService("ReplicatedStorage"):WaitForChild("AvailableStock")
+    -- Static label above dropdown
+    ShopSection:CreateLabel("Select an item to purchase:")
 
-    -- Prepare dropdown options for items that exist in AvailableStock
+    -- Define StockTable order explicitly
+    local orderedKeys = {
+        "MV1","MV2","MV3","MV9","MV8","MV14","MV5","MV6",
+        "MV7","MV15","MV10","MV12","MV11","MV13"
+    }
+
+    -- Prepare dropdown options
     local itemNames = {}
-    local itemMap = {} -- displayName -> itemId
-
-    for key, item in pairs(stockTable) do
-        if AvailableStock:FindFirstChild(key) then
+    local itemMap = {} -- mapping displayName -> key
+    for _, key in ipairs(orderedKeys) do
+        local item = stockTable[key]
+        if item and item.Name and item.Price then
             local displayName = item.Name .. " - " .. item.Price
             table.insert(itemNames, displayName)
             itemMap[displayName] = key
         end
     end
 
-    table.sort(itemNames, function(a,b)
-        -- Sort according to MV number (MV1 → MV15)
-        local aNum = tonumber(itemMap[a]:match("%d+"))
-        local bNum = tonumber(itemMap[b]:match("%d+"))
-        return aNum < bNum
-    end)
+    if #itemNames == 0 then
+        ShopSection:CreateLabel("No items available in stock.")
+        return
+    end
 
     local selectedItem = itemNames[1]
 
-    -- Dropdown to select item
+    -- Create dropdown
     local ItemDropdown = ShopSection:CreateDropdown({
         Name = "Select Item",
         Options = itemNames,
@@ -36,7 +42,7 @@ return function(Window, QuestEvent, stockTable, Rayfield)
         Flag = "ShopDropdown",
         Callback = function(option)
             selectedItem = option[1]
-        end
+        end,
     })
 
     -- Buy button
@@ -46,7 +52,7 @@ return function(Window, QuestEvent, stockTable, Rayfield)
             if not selectedItem or not itemMap[selectedItem] then
                 Rayfield:Notify({
                     Title = "Error",
-                    Content = "No item selected or item unavailable!",
+                    Content = "No item selected!",
                     Duration = 5,
                     Image = "x"
                 })
@@ -66,6 +72,6 @@ return function(Window, QuestEvent, stockTable, Rayfield)
                 Duration = 5,
                 Image = "check"
             })
-        end
+        end,
     })
 end
