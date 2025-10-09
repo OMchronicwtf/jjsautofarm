@@ -94,6 +94,13 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
                 return
             end
 
+            -- Check if item is still in stock before attempting purchase
+            if not availableStock:FindFirstChild(key) then
+                print("Item no longer in stock! Refreshing dropdown...")
+                refreshDropdown() -- Force refresh if needed
+                return
+            end
+
             local data = stockTable[key]
             if not data then
                 print("Item data not found!")
@@ -104,23 +111,4 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
             local playerData = player:WaitForChild("Data")
             local playerCash = playerData:WaitForChild("Cash").Value
 
-            local itemPrice = parsePrice(data.Price)
-            if playerCash < itemPrice then
-                -- Notify user of insufficient funds (using print for now; pass Rayfield to module for Notify)
-                print("Insufficient funds! Need " .. itemPrice .. " but have " .. playerCash)
-                -- TODO: For Rayfield Notify, update main script to pass Rayfield as param, e.g., ShopModule(..., Rayfield)
-                -- Then: Rayfield:Notify({Title = "Shop Error", Content = "Insufficient funds! Need " .. itemPrice .. " but have " .. playerCash, Duration = 3})
-                return
-            end
-
-            if QuestEvent then
-                QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
-                print("Attempted to buy: " .. key .. " (" .. stockTable[key].Name .. ")")
-            else
-                print("QuestEvent not available!")
-            end
-        end,
-    })
-
-    return ShopTab -- Return the tab reference to match other modules
-end
+            local itemPrice = parsePrice
