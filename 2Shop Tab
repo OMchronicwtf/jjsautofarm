@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (Manual + AutoBuy - Separate)
+-- Shop Tab Module (AutoBuy Above Manual)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
@@ -38,6 +38,58 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     local function parsePrice(priceStr)
         return tonumber(priceStr:gsub("[^%d]", "")) or 0
     end
+
+    -------------------
+    -- AutoBuy System (Now on top)
+    -------------------
+    ShopTab:CreateSection("AutoBuy Moveset")
+
+    local AutoBuyTarget = nil
+    local AutoBuyEnabled = false
+
+    local allOptions = {}
+    for _, key in ipairs(orderedKeys) do
+        local data = stockTable[key]
+        if data then
+            table.insert(allOptions, data.Name .. " (" .. key .. ") - " .. data.Price)
+        end
+    end
+
+    local AutoBuyDropdown = ShopTab:CreateDropdown({
+        Name = "Select AutoBuy Target (all items)",
+        Options = allOptions,
+        CurrentOption = {},
+        MultipleOptions = false,
+        Flag = "AutoBuyDropdown",
+        Callback = function(Options)
+            AutoBuyTarget = Options[1] or nil
+            if AutoBuyTarget and Rayfield then
+                Rayfield:Notify({
+                    Title = "AutoBuy",
+                    Content = "Target set to: " .. AutoBuyTarget,
+                    Duration = 4,
+                    Image = "check"
+                })
+            end
+        end,
+    })
+
+    ShopTab:CreateToggle({
+        Name = "Enable AutoBuy",
+        CurrentValue = false,
+        Flag = "AutoBuyToggle",
+        Callback = function(Value)
+            AutoBuyEnabled = Value
+            if Rayfield then
+                Rayfield:Notify({
+                    Title = "AutoBuy",
+                    Content = Value and "Enabled" or "Disabled",
+                    Duration = 4,
+                    Image = Value and "play" or "pause"
+                })
+            end
+        end,
+    })
 
     -------------------
     -- Manual Purchase
@@ -89,58 +141,6 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                         Image = "shopping-bag"
                     })
                 end
-            end
-        end,
-    })
-
-    -------------------
-    -- AutoBuy System
-    -------------------
-    ShopTab:CreateSection("AutoBuy Moveset")
-
-    local AutoBuyTarget = nil
-    local AutoBuyEnabled = false
-
-    local allOptions = {}
-    for _, key in ipairs(orderedKeys) do
-        local data = stockTable[key]
-        if data then
-            table.insert(allOptions, data.Name .. " (" .. key .. ") - " .. data.Price)
-        end
-    end
-
-    local AutoBuyDropdown = ShopTab:CreateDropdown({
-        Name = "Select AutoBuy Target (all items)",
-        Options = allOptions,
-        CurrentOption = {},
-        MultipleOptions = false,
-        Flag = "AutoBuyDropdown",
-        Callback = function(Options)
-            AutoBuyTarget = Options[1] or nil
-            if AutoBuyTarget and Rayfield then
-                Rayfield:Notify({
-                    Title = "AutoBuy",
-                    Content = "Target set to: " .. AutoBuyTarget,
-                    Duration = 4,
-                    Image = "check"
-                })
-            end
-        end,
-    })
-
-    ShopTab:CreateToggle({
-        Name = "Enable AutoBuy",
-        CurrentValue = false,
-        Flag = "AutoBuyToggle",
-        Callback = function(Value)
-            AutoBuyEnabled = Value
-            if Rayfield then
-                Rayfield:Notify({
-                    Title = "AutoBuy",
-                    Content = Value and "Enabled" or "Disabled",
-                    Duration = 4,
-                    Image = Value and "play" or "pause"
-                })
             end
         end,
     })
