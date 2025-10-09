@@ -46,9 +46,11 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
 
         ItemDropdown:Refresh(options)
 
-        -- Reset to first option if no selection and options available
-        if #options > 0 and #ItemDropdown.CurrentOption == 0 then
+        -- Always reset to first option if options available (prevents invalid selection issues)
+        if #options > 0 then
             ItemDropdown:Set({options[1]})
+        else
+            ItemDropdown:Set({})
         end
     end
 
@@ -97,6 +99,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
             -- Check if item is still in stock before attempting purchase
             if not availableStock:FindFirstChild(key) then
                 print("Item no longer in stock! Refreshing dropdown...")
+                ItemDropdown:Set({}) -- Clear invalid selection
                 refreshDropdown() -- Force refresh if needed
                 return
             end
@@ -111,4 +114,23 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
             local playerData = player:WaitForChild("Data")
             local playerCash = playerData:WaitForChild("Cash").Value
 
-            local itemPrice = parsePrice
+            local itemPrice = parsePrice(data.Price)
+            if playerCash < itemPrice then
+                print("Insufficient funds! Need " .. itemPrice .. " but have " .. playerCash)
+                return
+            end
+
+            if QuestEvent then
+                QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                print("Attempted to buy: " .. key .. " (" .. stockTable[key].Name .. ")")
+                ItemDropdown:Set({}) -- Clear selection after successful buy
+                task.wait(0.1) -- Small delay for server to process removal
+                refreshDropdown()
+            else
+                print("QuestEvent not available!")
+            end
+        end,
+    })
+
+    return ShopTab -- Return the tab reference to match other modules
+end
