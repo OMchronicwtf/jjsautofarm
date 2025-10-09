@@ -6,19 +6,28 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent)
     -- Load stockTable locally within this module
     local stockTable = loadstring(game:HttpGet("https://github.com/OMchronicwtf/jjsautofarm/raw/refs/heads/main/Stock%20Table"))()
 
+    -- Ordered keys to match the exact sequence in the stockTable definition
+    local orderedKeys = {
+        "MV1", "MV2", "MV3", "MV9", "MV8", "MV14", "MV5", "MV6", "MV7", "MV15",
+        "MV10", "MV12", "MV11", "MV13"
+    }
+
     -- Create the Shop Tab
     local ShopTab = Window:CreateTab("Shop", "shopping-bag") -- Using Lucide icon for shop theme
 
     -- Create a Section for organization
     ShopTab:CreateSection("Shop Features")
 
-    -- Build formatted options from stockTable (all purchase options added to dropdown)
+    -- Build formatted options from stockTable in the exact order of the table
     local options = {}
-    for key, data in pairs(stockTable) do
-        table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+    for _, key in ipairs(orderedKeys) do
+        local data = stockTable[key]
+        if data then
+            table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+        end
     end
 
-    -- Dropdown populated with all items from stockTable
+    -- Dropdown populated with all items from stockTable (in table order)
     local ItemDropdown = ShopTab:CreateDropdown({
         Name = "Select Item",
         Options = options,
