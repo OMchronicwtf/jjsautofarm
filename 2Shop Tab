@@ -56,7 +56,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     end
 
     local AutoBuyDropdown = ShopTab:CreateDropdown({
-        Name = "Select AutoBuy Target (all items)",
+        Name = "Select Item",
         Options = allOptions,
         CurrentOption = {},
         MultipleOptions = false,
@@ -94,10 +94,10 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     -------------------
     -- Manual Purchase
     -------------------
-    ShopTab:CreateSection("Manual Purchase")
+    ShopTab:CreateSection("Self-Buy Moveset")
 
     local ManualDropdown = ShopTab:CreateDropdown({
-        Name = "Select Item (in stock)",
+        Name = "Select Moveset (In Stock)",
         Options = {},
         CurrentOption = {},
         MultipleOptions = false,
