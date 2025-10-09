@@ -29,7 +29,7 @@ return function(Window, Event)
         MultipleOptions = false,
         Flag = "ShopDropdown",
         Callback = function(option)
-            selectedItem = option[1]:match("^(%w+)")
+            selectedItem = option[1]
         end
     })
 
