@@ -1,0 +1,58 @@
+-- =======================
+-- Shop Tab Module
+-- =======================
+
+return function(Window, player, QuestEvent, quests, RunService, stockTable, serverEvent)
+    -- Create the Shop Tab
+    local ShopTab = Window:CreateTab("Shop", "shopping-bag") -- Using Lucide icon for shop theme
+
+    -- Create a Section for organization
+    ShopTab:CreateSection("Shop Features")
+
+    -- Build formatted options from stockTable (all purchase options added to dropdown)
+    local options = {}
+    for key, data in pairs(stockTable) do
+        table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+    end
+
+    -- Dropdown populated with all items from stockTable
+    local ItemDropdown = ShopTab:CreateDropdown({
+        Name = "Select Item",
+        Options = options,
+        CurrentOption = {options[1] or ""},
+        MultipleOptions = false,
+        Flag = "ShopItemDropdown",
+        Callback = function(Options)
+            -- Placeholder; prints selected for now
+            print("Selected item(s):", table.concat(Options, ", "))
+        end,
+    })
+
+    -- Button to buy the selected item
+    local BuyButton = ShopTab:CreateButton({
+        Name = "Buy Selected Item",
+        Callback = function()
+            local selected = ItemDropdown.CurrentOption[1]
+            if not selected then
+                print("No item selected!")
+                return
+            end
+
+            -- Parse the key (e.g., "MV1") from the formatted option
+            local key = selected:match("%((%u%w+)%)")
+            if not key then
+                print("Could not parse item key from selection!")
+                return
+            end
+
+            if serverEvent then
+                serverEvent:InvokeServer({ Arg = "BuyMove", Move = key })
+                print("Attempted to buy: " .. key .. " (" .. stockTable[key].Name .. ")")
+            else
+                print("Server event not available!")
+            end
+        end,
+    })
+
+    return ShopTab -- Return the tab reference to match other modules
+end
