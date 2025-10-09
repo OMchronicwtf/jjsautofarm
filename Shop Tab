@@ -1,36 +1,46 @@
 -- ShopTabModule.lua
+-- Module for Jututsu Seas Shop Tab
 
+-- Always return a function to avoid breaking tab loading
 return function(Window, StockTable, Event)
-    local ShopTab = Window:CreateTab("Shop", 4483362458) -- Lucide icon, change if needed
+    -- Create the Shop tab
+    local ShopTab = Window:CreateTab("Shop", 4483362458) -- Lucide icon ID
+
+    -- Create a section inside the Shop tab
     local ShopSection = ShopTab:CreateSection("Stock Items")
 
-    -- Prepare dropdown options
+    -- Build dropdown options dynamically from StockTable
     local dropdownOptions = {}
     for key, item in pairs(StockTable) do
         table.insert(dropdownOptions, key .. " | " .. item.Name .. " - " .. item.Price)
     end
 
-    local selectedItem = nil
+    local selectedItem = nil -- stores current selection
 
-    local ItemDropdown = ShopSection:CreateDropdown({
+    -- Create dropdown to select items
+    ShopSection:CreateDropdown({
         Name = "Select Item",
         Options = dropdownOptions,
         CurrentOption = {},
         MultipleOptions = false,
         Flag = "ShopDropdown",
         Callback = function(option)
+            -- Extract the MV key from the dropdown string
             selectedItem = option:match("^(%w+)")
         end
     })
 
+    -- Create purchase button
     ShopSection:CreateButton({
         Name = "Purchase",
         Callback = function()
             if selectedItem and StockTable[selectedItem] then
+                -- Fire the purchase event
                 Event:FireServer({
                     Item = selectedItem,
                     Type = "StockBuy"
                 })
+                -- Notify the user of success
                 Rayfield:Notify({
                     Title = "Shop",
                     Content = "Purchased: " .. StockTable[selectedItem].Name,
@@ -38,6 +48,7 @@ return function(Window, StockTable, Event)
                     Image = "shopping-cart"
                 })
             else
+                -- Notify the user if no selection is made
                 Rayfield:Notify({
                     Title = "Shop",
                     Content = "No item selected!",
