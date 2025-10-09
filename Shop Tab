@@ -1,32 +1,32 @@
 -- ShopTabModule.lua
--- Static Shop Tab Module
-
 return function(Window, Event)
-    -- Create the Shop tab
-    local ShopTab = Window:CreateTab("Shop", 4483362458) -- Lucide icon ID
-    local ShopSection = ShopTab:CreateSection("Stock Items")
+    -- Create Shop tab
+    local ShopTab = Window:CreateTab("Shop", "shopping-cart") -- Icon can be Lucide string
 
-    -- Static dropdown options (from Stock Table)
+    -- Section for Shop
+    local ShopSection = ShopTab:CreateSection("Shop")
+
+    -- Hardcoded dropdown options
     local dropdownOptions = {
-        "MV1 | Explosive Bomb - $ 75,000",
-        "MV2 | Construction - $ 150,000",
-        "MV3 | Rubber - $ 200,000",
-        "MV9 | Vital Arts - $ 650,000",
-        "MV8 | Turbo Soul - $ 850,000",
-        "MV14 | Sakura Blossom - $ 950,000",
-        "MV5 | Light - $ 1,250,000",
-        "MV6 | Star Guardian - $ 1,500,000",
-        "MV7 | Ice - $ 1,750,000",
-        "MV15 | Flame Breathing - $ 1,875,000",
-        "MV10 | Infinity - $ 2,150,000",
-        "MV12 | Monarch - $ 2,500,000",
-        "MV11 | Vessel - $ 2,900,000",
-        "MV13 | Spectral Reaper - $ 3,250,000"
+        "MV1 | Explosive Bomb",
+        "MV2 | Construction",
+        "MV3 | Rubber",
+        "MV9 | Vital Arts",
+        "MV8 | Turbo Soul",
+        "MV14 | Sakura Blossom",
+        "MV5 | Light",
+        "MV6 | Star Guardian",
+        "MV7 | Ice",
+        "MV15 | Flame Breathing",
+        "MV10 | Infinity",
+        "MV12 | Monarch",
+        "MV11 | Vessel",
+        "MV13 | Spectral Reaper"
     }
 
     local selectedItem = nil
 
-    -- Create dropdown
+    -- Dropdown for selecting item
     ShopSection:CreateDropdown({
         Name = "Select Item",
         Options = dropdownOptions,
@@ -38,7 +38,7 @@ return function(Window, Event)
         end
     })
 
-    -- Create purchase button
+    -- Purchase button
     ShopSection:CreateButton({
         Name = "Purchase",
         Callback = function()
