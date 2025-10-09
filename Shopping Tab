@@ -19,9 +19,16 @@ return function(Window, QuestEvent, stockTable, Rayfield)
     local itemMap = {} -- mapping displayName -> key
     for _, key in ipairs(orderedKeys) do
         local item = stockTable[key]
-        local displayName = item.Name .. " - " .. item.Price
-        table.insert(itemNames, displayName)
-        itemMap[displayName] = key
+        if item and item.Name and item.Price then
+            local displayName = item.Name .. " - " .. item.Price
+            table.insert(itemNames, displayName)
+            itemMap[displayName] = key
+        end
+    end
+
+    if #itemNames == 0 then
+        ShopSection:CreateLabel("No items available in stock.")
+        return
     end
 
     local selectedItem = itemNames[1]
@@ -30,11 +37,11 @@ return function(Window, QuestEvent, stockTable, Rayfield)
     local ItemDropdown = ShopSection:CreateDropdown({
         Name = "Select Item",
         Options = itemNames,
-        CurrentOption = {selectedItem},
-        MultipleOptions = false,
+        CurrentOption = selectedItem,
+        MultiSelect = false,
         Flag = "ShopDropdown",
-        Callback = function(option)
-            selectedItem = option[1]
+        Callback = function(Option)
+            selectedItem = Option
         end,
     })
 
