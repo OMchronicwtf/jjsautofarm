@@ -1,169 +1,307 @@
--- StatsTabModule.lua
-return function(Window, QuestEvent, player, RunService)
-    -- =======================
-    -- Create Stats Tab
-    -- =======================
-    local StatsTab = Window:CreateTab("Stats", "bar-chart")
+-- =======================
+-- Shop Tab Module (Misc + AutoBuy + Manual)
+-- =======================
 
-    -- =======================
-    -- Label for Available Points + Applied Stats
-    -- =======================
+return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
+    -- Hardcoded stockTable
+    local stockTable = {
+        MV1 = { Name = "Explosive Bomb", Price = "$ 75,000" },
+        MV2 = { Name = "Construction", Price = "$ 150,000" },
+        MV3 = { Name = "Rubber", Price = "$ 200,000" },
+        MV9 = { Name = "Vital Arts", Price = "$ 650,000" },
+        MV8 = { Name = "Turbo Soul", Price = "$ 850,000" },
+        MV14 = { Name = "Sakura Blossom", Price = "$ 950,000" },
+        MV5 = { Name = "Light", Price = "$ 1,250,000" },
+        MV6 = { Name = "Star Guardian", Price = "$ 1,500,000" },
+        MV7 = { Name = "Ice", Price = "$ 1,750,000" },
+        MV15 = { Name = "Flame Breathing", Price = "$ 1,875,000" },
+        MV10 = { Name = "Infinity", Price = "$ 2,150,000" },
+        MV12 = { Name = "Monarch", Price = "$ 2,500,000" },
+        MV11 = { Name = "Vessel", Price = "$ 2,900,000" },
+        MV13 = { Name = "Spectral Reaper", Price = "$ 3,250,000" },
+    }
 
-    StatsTab:CreateSection("Points Info")
+    local orderedKeys = {
+        "MV1", "MV2", "MV3", "MV9", "MV8", "MV14", "MV5", "MV6", "MV7", "MV15",
+        "MV10", "MV12", "MV11", "MV13"
+    }
 
-    local pointsLabel = StatsTab:CreateLabel("Available Points: 0 | Melee: 1 | Health: 1 | Weapon: 1 | Power: 1")
-    RunService.Heartbeat:Connect(function()
-        local data = player:WaitForChild("Data")
-        local points = data:WaitForChild("Points").Value
-        local melee = (data:GetAttribute("M") or 0) + 1
-        local health = (data:GetAttribute("H") or 0) + 1
-        local weapon = (data:GetAttribute("S") or 0) + 1
-        local power = (data:GetAttribute("P") or 0) + 1
+    local availableStock = game:GetService("ReplicatedStorage"):FindFirstChild("AvailableStock")
+    if not availableStock then
+        availableStock = { GetChildren = function() return {} end }
+        warn("AvailableStock not found - using empty mock")
+    end
 
-        pointsLabel:Set(string.format(
-            "Available Points: %d\nMelee: %d | Health: %d | Weapon: %d | Power: %d",
-            points,
-            melee, health, weapon, power
-        ))
-    end)
+    local ShopTab = Window:CreateTab("Shop", "shopping-bag")
 
-    -- =======================
-    -- Stat Mappings & Options
-    -- =======================
-    local StatMap = {Melee="M", Health="H", Weapon="S", Power="P"}
-    local statOptions = {"Melee", "Health", "Weapon", "Power"}
+    -- Helper to parse "$ 1,250,000" → 1250000
+    local function parsePrice(priceStr)
+        return tonumber(priceStr:gsub("[^%d]", "")) or 0
+    end
 
-    -- =======================
-    -- Auto Apply Stats Section
-    -- =======================
-    StatsTab:CreateSection("Auto Apply Points")
-    local selectedAutoStats = {statOptions[1]}
-    local autoPoints = 0
-    local autoApplyEnabled = false
-    local autoApplyConnection
-    local autoIndex = 1 -- to track round-robin distribution
+    -------------------
+    -- Misc Section (Now on top)
+    -------------------
+    ShopTab:CreateSection("Misc")
 
-    -- Input for auto points
-    StatsTab:CreateInput({
-        Name = "Points to Auto Apply",
-        CurrentValue = "",
-        PlaceholderText = "Enter number of points",
-        RemoveTextAfterFocusLost = true,
-        Flag = "AutoPointsInput",
-        Callback = function(value)
-            autoPoints = tonumber(value) or 0
+    local autoRollEnabled = false
+    local autoRollThread
+    local inventoryCheckThread
+    local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
+
+    local rollCooldown = 30 -- Default 30 minutes
+
+    local function RollFruit()
+        serverEvent:InvokeServer({ Arg = "MovesetSpin" })
+    end
+
+    local function StoreFruit()
+        serverEvent:InvokeServer({ Arg = "StoreFruit" })
+    end
+
+    local function EquipAndStoreFruit()
+        local backpack = player:FindFirstChild("Backpack")
+        local character = player.Character
+        if not backpack or not character then return end
+
+        local fruit = backpack:FindFirstChild("Fruit")
+        if fruit then
+            character.Humanoid:EquipTool(fruit)
+            task.wait(0.5)
+            StoreFruit()
         end
-    })
+    end
 
-    -- Multi-select dropdown
-    StatsTab:CreateDropdown({
-        Name = "Select Stats for Auto Apply",
-        Options = statOptions,
-        CurrentOption = {statOptions[1]},
-        MultipleOptions = true,
-        Flag = "AutoStatDropdown",
-        Callback = function(options)
-            selectedAutoStats = options
-            autoIndex = 1 -- reset index when selection changes
-        end
-    })
-
-    -- Toggle to enable auto apply
-    StatsTab:CreateToggle({
-        Name = "Enable Auto Apply",
+    ShopTab:CreateToggle({
+        Name = "AutoRollFruit",
         CurrentValue = false,
-        Flag = "AutoApplyToggle",
+        Flag = "AutoRollFruitToggle",
         Callback = function(state)
-            autoApplyEnabled = state
+            autoRollEnabled = state
+
             if state then
-                autoApplyConnection = RunService.Heartbeat:Connect(function()
-                    if not autoApplyEnabled then return end
+                RollFruit()
+                task.wait(1)
+                EquipAndStoreFruit()
 
-                    local availablePoints = player:WaitForChild("Data"):WaitForChild("Points").Value
-                    if availablePoints > 0 and autoPoints > 0 and #selectedAutoStats > 0 then
-                        -- Round-robin apply one stat at a time
-                        local statName = selectedAutoStats[autoIndex]
-                        if StatMap[statName] then
-                            local applyAmount = math.min(autoPoints, availablePoints)
-                            QuestEvent:FireServer({
-                                Type = "StatsAdd",
-                                C = StatMap[statName],
-                                Amount = applyAmount
-                            })
-                            availablePoints = availablePoints - applyAmount
+                -- Roll loop
+                autoRollThread = task.spawn(function()
+                    while autoRollEnabled do
+                        for i = 1, rollCooldown * 60 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
                         end
+                        if autoRollEnabled then
+                            RollFruit()
+                            task.wait(1)
+                            EquipAndStoreFruit()
+                        end
+                    end
+                end)
 
-                        -- Move to next stat in list
-                        autoIndex = autoIndex + 1
-                        if autoIndex > #selectedAutoStats then
-                            autoIndex = 1
+                -- Inventory check every 5 seconds
+                inventoryCheckThread = task.spawn(function()
+                    while autoRollEnabled do
+                        EquipAndStoreFruit()
+                        for i = 1, 5 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
                         end
                     end
                 end)
             else
-                if autoApplyConnection then
-                    autoApplyConnection:Disconnect()
-                    autoApplyConnection = nil
+                autoRollEnabled = false
+            end
+        end
+    })
+
+    ShopTab:CreateSlider({
+        Name = "AutoRoll Interval",
+        Range = {10, 60},
+        Increment = 1,
+        Suffix = "min",
+        CurrentValue = 30,
+        Flag = "AutoRollInterval",
+        Callback = function(value)
+            rollCooldown = value
+        end
+    })
+
+    -------------------
+    -- AutoBuy System
+    -------------------
+    ShopTab:CreateSection("AutoBuy Moveset")
+
+    local AutoBuyTarget = nil
+    local AutoBuyEnabled = false
+
+    local allOptions = {}
+    for _, key in ipairs(orderedKeys) do
+        local data = stockTable[key]
+        if data then
+            table.insert(allOptions, data.Name .. " (" .. key .. ") - " .. data.Price)
+        end
+    end
+
+    local AutoBuyDropdown = ShopTab:CreateDropdown({
+        Name = "Choose Moveset",
+        Options = allOptions,
+        CurrentOption = {},
+        MultipleOptions = false,
+        Flag = "AutoBuyDropdown",
+        Callback = function(Options)
+            AutoBuyTarget = Options[1] or nil
+            if AutoBuyTarget and Rayfield then
+                Rayfield:Notify({
+                    Title = "AutoBuy",
+                    Content = "Target set to: " .. AutoBuyTarget,
+                    Duration = 4,
+                    Image = "check"
+                })
+            end
+        end,
+    })
+
+    ShopTab:CreateToggle({
+        Name = "Enable AutoBuy",
+        CurrentValue = false,
+        Flag = "AutoBuyToggle",
+        Callback = function(Value)
+            AutoBuyEnabled = Value
+            if Rayfield then
+                Rayfield:Notify({
+                    Title = "AutoBuy",
+                    Content = Value and "Enabled" or "Disabled",
+                    Duration = 4,
+                    Image = Value and "play" or "pause"
+                })
+            end
+        end,
+    })
+
+    -------------------
+    -- Manual Purchase
+    -------------------
+    ShopTab:CreateSection("Self-Buy Moveset")
+
+    local ManualDropdown = ShopTab:CreateDropdown({
+        Name = "Choose Moveset (In Stock)",
+        Options = {},
+        CurrentOption = {},
+        MultipleOptions = false,
+        Flag = "ManualDropdown",
+        Callback = function() end, -- handled by button
+    })
+
+    ShopTab:CreateButton({
+        Name = "Buy Selected",
+        Callback = function()
+            local selected = ManualDropdown.CurrentOption[1]
+            if not selected then return end
+
+            local key = selected:match("%((.-)%)")
+            local data = key and stockTable[key]
+            if not key or not data then return end
+
+            local playerData = player:FindFirstChild("Data")
+            local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
+            local itemPrice = parsePrice(data.Price)
+
+            if playerCash < itemPrice then
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "Not enough cash to buy " .. data.Name,
+                        Duration = 4,
+                        Image = "x-circle"
+                    })
+                end
+                return
+            end
+
+            if QuestEvent then
+                QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "Purchased: " .. data.Name,
+                        Duration = 5,
+                        Image = "shopping-bag"
+                    })
+                end
+            end
+        end,
+    })
+
+    -------------------
+    -- Refresh Manual Dropdown
+    -------------------
+    local function refreshManualDropdown()
+        local availableKeys = {}
+        for _, child in ipairs(availableStock:GetChildren()) do
+            table.insert(availableKeys, child.Name)
+        end
+
+        table.sort(availableKeys, function(a, b)
+            local ia = table.find(orderedKeys, a)
+            local ib = table.find(orderedKeys, b)
+            return (ia or math.huge) < (ib or math.huge)
+        end)
+
+        local options = {}
+        for _, key in ipairs(availableKeys) do
+            local data = stockTable[key]
+            if data then
+                table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+            end
+        end
+
+        ManualDropdown:Refresh(options)
+        if #options > 0 and #ManualDropdown.CurrentOption == 0 then
+            ManualDropdown:Set({ options[1] })
+        end
+    end
+
+    refreshManualDropdown()
+    if availableStock.ChildAdded then
+        availableStock.ChildAdded:Connect(refreshManualDropdown)
+    end
+    if availableStock.ChildRemoved then
+        availableStock.ChildRemoved:Connect(refreshManualDropdown)
+    end
+
+    -------------------
+    -- AutoBuy Loop
+    -------------------
+    RunService.Heartbeat:Connect(function()
+        if AutoBuyEnabled and AutoBuyTarget then
+            local key = AutoBuyTarget:match("%((.-)%)")
+            local data = key and stockTable[key]
+            if not key or not data then return end
+
+            local found = availableStock:FindFirstChild(key)
+            if found then
+                local playerData = player:FindFirstChild("Data")
+                local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
+                local itemPrice = parsePrice(data.Price)
+
+                if playerCash >= itemPrice then
+                    if QuestEvent then
+                        QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                        if Rayfield then
+                            Rayfield:Notify({
+                                Title = "AutoBuy",
+                                Content = "Purchased: " .. data.Name,
+                                Duration = 5,
+                                Image = "shopping-bag"
+                            })
+                        end
+                        task.wait(0.5) -- throttle
+                    end
                 end
             end
         end
-    })
+    end)
 
-    -- =======================
-    -- Manual Apply Stats Section
-    -- =======================
-    StatsTab:CreateSection("Self Apply Points")
-    local selectedManualStat = statOptions[1]
-    local manualPoints = 0
-
-    -- Input for manual points
-    StatsTab:CreateInput({
-        Name = "Amount",
-        CurrentValue = "",
-        PlaceholderText = "Enter number of points",
-        RemoveTextAfterFocusLost = true,
-        Flag = "ManualPointsInput",
-        Callback = function(value)
-            manualPoints = tonumber(value) or 0
-        end
-    })
-
-    -- Dropdown to select single stat
-    StatsTab:CreateDropdown({
-        Name = "Select Stat",
-        Options = statOptions,
-        CurrentOption = {statOptions[1]},
-        MultipleOptions = false,
-        Flag = "ManualStatDropdown",
-        Callback = function(option)
-            selectedManualStat = option[1]
-        end
-    })
-
-    -- Button to apply manual points
-    StatsTab:CreateButton({
-        Name = "Apply Points",
-        Callback = function()
-            if manualPoints > 0 and selectedManualStat and StatMap[selectedManualStat] then
-                QuestEvent:FireServer({
-                    Type = "StatsAdd",
-                    C = StatMap[selectedManualStat],
-                    Amount = manualPoints
-                })
-            end
-        end
-    })
-
-    -- =======================
-    -- Reset Section
-    -- =======================
-    StatsTab:CreateSection("Reset")
-    StatsTab:CreateButton({
-        Name = "Reset All Points",
-        Callback = function()
-            QuestEvent:FireServer({
-                Type = "Resett"
-            })
-        end
-    })
+    return ShopTab
 end
