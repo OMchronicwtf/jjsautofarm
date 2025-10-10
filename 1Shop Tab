@@ -326,3 +326,12 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         Increment = 1,
         Suffix = "min",
         CurrentValue = 30,
+        Flag = "AutoRollInterval",
+        Callback = function(value)
+            rollCooldown = value
+        end
+    })
+
+    -- Finally, return the tab
+    return ShopTab
+end
