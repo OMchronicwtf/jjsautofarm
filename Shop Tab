@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (AutoBuy + Manual + AutoRoll at bottom)
+-- Shop Tab Module (Money/Gems + AutoBuy + Manual + AutoRoll at bottom)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
@@ -33,6 +33,22 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     end
 
     local ShopTab = Window:CreateTab("Shop", "shopping-bag")
+
+    -- ====================
+    -- Money/Gems Label (Top)
+    -- ====================
+    ShopTab:CreateSection("Money & Gems Info")
+
+    local moneyLabel = ShopTab:CreateLabel("Cash: $0 | Gems: 0")
+
+    RunService.Heartbeat:Connect(function()
+        local data = player:FindFirstChild("Data")
+        if data then
+            local cash = data:FindFirstChild("Cash") and data.Cash.Value or 0
+            local gems = data:FindFirstChild("Gems") and data.Gems.Value or 0
+            moneyLabel:Set(string.format("Cash: $%s | Gems: %s", tostring(cash), tostring(gems)))
+        end
+    end)
 
     -- Helper to parse "$ 1,250,000" → 1250000
     local function parsePrice(priceStr)
@@ -216,7 +232,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     end)
 
     -------------------
-    -- AutoRoll / Misc Section (Now at bottom)
+    -- AutoRoll / Misc Section (At bottom)
     -------------------
     ShopTab:CreateSection("Random Moveset Spins")
 
