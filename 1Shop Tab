@@ -135,11 +135,14 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                     table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
                 end
             end
-            table.sort(options, function(a,b) return a < b end)
+            -- keep "None" at the top, sort everything else
+            table.sort(options, function(a, b)
+                if a == "None" then return true end
+                if b == "None" then return false end
+                return a < b
+            end)
             ManualDropdown:Refresh(options)
-            if #options > 0 then
-                ManualDropdown:Set({ options[1] })
-            end
+            ManualDropdown:Set({"None"}) -- always reset to None after refresh
             if Rayfield then
                 Rayfield:Notify({
                     Title = "Shop",
