@@ -1,0 +1,261 @@
+-- =======================
+-- Shop & Moveset Module
+-- =======================
+return function(Rayfield, MainTab, player)
+
+    local ShopTab = MainTab
+
+    -- =======================
+    -- Money & Gems Display
+    -- =======================
+    local function formatNumber(n)
+        local formatted = tostring(n)
+        while true do  
+            formatted, k = formatted:gsub("^(-?%d+)(%d%d%d)", '%1,%2')
+            if k == 0 then break end
+        end
+        return formatted
+    end
+
+    local moneyLabel = ShopTab:CreateLabel("Money: 0 | Gems: 0")
+
+    task.spawn(function()
+        while task.wait(2) do
+            local gems = player.Data.Gems.Value
+            local cash = player.Data.Cash.Value
+            moneyLabel:Set("Money: " .. formatNumber(cash) .. " | Gems: " .. formatNumber(gems))
+        end
+    end)
+
+    -- =======================
+    -- AutoBuy Section
+    -- =======================
+    ShopTab:CreateSection("AutoBuy")
+
+    local AutoBuyTarget = nil
+    local AutoBuyEnabled = false
+    local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
+
+    local function fetchStock()
+        local stockTable = serverEvent:InvokeServer({Arg = "Stock"})
+        return stockTable or {}
+    end
+
+    local stockTable = fetchStock()
+    local orderedKeys = {}
+    for key in pairs(stockTable) do
+        table.insert(orderedKeys, key)
+    end
+    table.sort(orderedKeys)
+
+    -- Add "None" as the first option
+    local allOptions = {"None"}
+    for _, key in ipairs(orderedKeys) do
+        local data = stockTable[key]
+        if data then
+            table.insert(allOptions, data.Name .. " (" .. key .. ") - " .. data.Price)
+        end
+    end
+
+    local AutoBuyDropdown = ShopTab:CreateDropdown({
+        Name = "Choose Moveset",
+        Options = allOptions,
+        CurrentOption = {"None"}, -- default to None
+        MultipleOptions = false,
+        Flag = "AutoBuyDropdown",
+        Callback = function(Options)
+            AutoBuyTarget = (Options[1] ~= "None") and Options[1] or nil
+            if AutoBuyTarget and Rayfield then
+                Rayfield:Notify({
+                    Title = "AutoBuy",
+                    Content = "Target set to: " .. AutoBuyTarget,
+                    Duration = 4,
+                    Image = "check"
+                })
+            end
+        end,
+    })
+
+    ShopTab:CreateToggle({
+        Name = "Enable AutoBuy",
+        CurrentValue = false,
+        Flag = "AutoBuyToggle",
+        Callback = function(state)
+            AutoBuyEnabled = state
+            if state then
+                task.spawn(function()
+                    while AutoBuyEnabled do
+                        if AutoBuyTarget then
+                            local stock = fetchStock()
+                            for key, data in pairs(stock) do
+                                local formatted = data.Name .. " (" .. key .. ") - " .. data.Price
+                                if formatted == AutoBuyTarget then
+                                    serverEvent:InvokeServer({Arg = "Buy", Item = key})
+                                    Rayfield:Notify({
+                                        Title = "AutoBuy",
+                                        Content = "Purchased " .. AutoBuyTarget,
+                                        Duration = 4,
+                                        Image = "check"
+                                    })
+                                    break
+                                end
+                            end
+                        end
+                        for _ = 1, 30 do
+                            if not AutoBuyEnabled then break end
+                            task.wait(1)
+                        end
+                    end
+                end)
+            end
+        end,
+    })
+
+    -- =======================
+    -- Manual Buy Section
+    -- =======================
+    ShopTab:CreateSection("Manual Buy")
+
+    ShopTab:CreateButton({
+        Name = "Refresh Stock",
+        Callback = function()
+            local stockTable = fetchStock()
+            local orderedKeys = {}
+            for key in pairs(stockTable) do
+                table.insert(orderedKeys, key)
+            end
+            table.sort(orderedKeys)
+
+            local refreshOptions = {"None"}
+            for _, key in ipairs(orderedKeys) do
+                local data = stockTable[key]
+                if data then
+                    table.insert(refreshOptions, data.Name .. " (" .. key .. ") - " .. data.Price)
+                end
+            end
+
+            ManualDropdown:Refresh(refreshOptions)
+            ManualDropdown:Set({"None"}) -- default to None
+        end,
+    })
+
+    ManualDropdown = ShopTab:CreateDropdown({
+        Name = "Choose Moveset (In Stock)",
+        Options = {"None"}, -- starts with None
+        CurrentOption = {"None"}, -- default to None
+        MultipleOptions = false,
+        Flag = "ManualDropdown",
+        Callback = function() end,
+    })
+
+    ShopTab:CreateButton({
+        Name = "Buy Selected",
+        Callback = function()
+            local selected = ManualDropdown.CurrentOption[1]
+            if selected and selected ~= "None" then
+                local stockTable = fetchStock()
+                for key, data in pairs(stockTable) do
+                    local formatted = data.Name .. " (" .. key .. ") - " .. data.Price
+                    if formatted == selected then
+                        serverEvent:InvokeServer({Arg = "Buy", Item = key})
+                        Rayfield:Notify({
+                            Title = "Manual Buy",
+                            Content = "Purchased " .. selected,
+                            Duration = 4,
+                            Image = "check"
+                        })
+                        break
+                    end
+                end
+            end
+        end,
+    })
+
+    -- =======================
+    -- Misc Section (AutoRollFruit)
+    -- =======================
+    ShopTab:CreateSection("Misc")
+
+    local autoRollEnabled = false
+    local autoRollThread
+    local inventoryCheckThread
+
+    -- Default 30 minutes
+    local rollCooldown = 30
+
+    local function RollFruit()
+        serverEvent:InvokeServer({ Arg = "MovesetSpin" })
+    end
+
+    local function StoreFruit()
+        serverEvent:InvokeServer({ Arg = "StoreFruit" })
+    end
+
+    local function EquipAndStoreFruit()
+        local backpack = player:FindFirstChild("Backpack")
+        local character = player.Character
+        if not backpack or not character then return end
+
+        local fruit = backpack:FindFirstChild("Fruit")
+        if fruit then
+            character.Humanoid:EquipTool(fruit)
+            task.wait(0.5)
+            StoreFruit()
+        end
+    end
+
+    ShopTab:CreateToggle({
+        Name = "AutoRollFruit",
+        CurrentValue = false,
+        Flag = "AutoRollFruitToggle",
+        Callback = function(state)
+            autoRollEnabled = state
+
+            if state then
+                RollFruit()
+                task.wait(1)
+                EquipAndStoreFruit()
+
+                autoRollThread = task.spawn(function()
+                    while autoRollEnabled do
+                        for i = 1, rollCooldown * 60 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
+                        end
+                        if autoRollEnabled then
+                            RollFruit()
+                            task.wait(1)
+                            EquipAndStoreFruit()
+                        end
+                    end
+                end)
+
+                inventoryCheckThread = task.spawn(function()
+                    while autoRollEnabled do
+                        EquipAndStoreFruit()
+                        for i = 1, 5 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
+                        end
+                    end
+                end)
+            else
+                autoRollEnabled = false
+            end
+        end
+    })
+
+    ShopTab:CreateSlider({
+        Name = "AutoRoll Interval",
+        Range = {10, 60},
+        Increment = 1,
+        Suffix = "min",
+        CurrentValue = 30,
+        Flag = "AutoRollInterval",
+        Callback = function(value)
+            rollCooldown = value
+        end
+    })
+
+    return ShopTab
+end
