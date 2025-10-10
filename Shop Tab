@@ -72,7 +72,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     local AutoBuyTarget = nil
     local AutoBuyEnabled = false
 
-    local allOptions = {}
+    local allOptions = {"None"} -- add "None" as first option
     for _, key in ipairs(orderedKeys) do
         local data = stockTable[key]
         if data then
@@ -83,11 +83,11 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     local AutoBuyDropdown = ShopTab:CreateDropdown({
         Name = "Choose Moveset",
         Options = allOptions,
-        CurrentOption = {},
+        CurrentOption = {"None"}, -- default to None
         MultipleOptions = false,
         Flag = "AutoBuyDropdown",
         Callback = function(Options)
-            AutoBuyTarget = Options[1] or nil
+            AutoBuyTarget = (Options[1] ~= "None") and Options[1] or nil
             if AutoBuyTarget and Rayfield then
                 Rayfield:Notify({
                     Title = "AutoBuy",
@@ -127,7 +127,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         Name = "Refresh Stock",
         Callback = function()
             if not ManualDropdown then return end
-            local options = {}
+            local options = {"None"} -- always include None
             for _, child in ipairs(availableStock:GetChildren()) do
                 local key = child.Name
                 local data = stockTable[key]
@@ -135,7 +135,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                     table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
                 end
             end
-            table.sort(options)
+            table.sort(options, function(a,b) return a < b end)
             ManualDropdown:Refresh(options)
             if #options > 0 then
                 ManualDropdown:Set({ options[1] })
@@ -153,8 +153,8 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
 
     ManualDropdown = ShopTab:CreateDropdown({
         Name = "Choose Moveset (In Stock)",
-        Options = {},
-        CurrentOption = {},
+        Options = {"None"}, -- start with None
+        CurrentOption = {"None"}, -- default to None
         MultipleOptions = false,
         Flag = "ManualDropdown",
         Callback = function() end,
@@ -164,7 +164,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         Name = "Buy Selected",
         Callback = function()
             local selected = ManualDropdown.CurrentOption[1]
-            if not selected then return end
+            if not selected or selected == "None" then return end
 
             local key = selected:match("%((.-)%)")
             local data = key and stockTable[key]
