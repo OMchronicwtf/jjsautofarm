@@ -35,9 +35,18 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     local ShopTab = Window:CreateTab("Shop", "shopping-bag")
 
     -- ====================
-    -- Money/Gems Label (Top)
+    -- Money/Gems Label (Top, formatted with commas)
     -- ====================
-    ShopTab:CreateSection("Money & Gems Info")
+    ShopTab:CreateSection("Money & Gems")
+
+    local function formatNumber(num)
+        local formatted = tostring(num):reverse():gsub("(%d%d%d)", "%1,")
+        formatted = formatted:reverse()
+        if formatted:sub(1,1) == "," then
+            formatted = formatted:sub(2)
+        end
+        return formatted
+    end
 
     local moneyLabel = ShopTab:CreateLabel("Cash: $0 | Gems: 0")
 
@@ -46,7 +55,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         if data then
             local cash = data:FindFirstChild("Cash") and data.Cash.Value or 0
             local gems = data:FindFirstChild("Gems") and data.Gems.Value or 0
-            moneyLabel:Set(string.format("Cash: $%s | Gems: %s", tostring(cash), tostring(gems)))
+            moneyLabel:Set(string.format("Cash: $%s | Gems: %s", formatNumber(cash), formatNumber(gems)))
         end
     end)
 
