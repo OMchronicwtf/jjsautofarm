@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (Money/Gems + AutoBuy + Manual + AutoRoll at bottom)
+-- Shop Tab Module (Optimized: Money/Gems + AutoBuy + Manual + AutoRoll at bottom)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
@@ -171,7 +171,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- Refresh Manual Dropdown
+    -- Refresh Manual Dropdown (Optimized)
     -------------------
     local function refreshManualDropdown()
         local availableKeys = {}
@@ -194,12 +194,16 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         end
 
         ManualDropdown:Refresh(options)
-        if #options > 0 and #ManualDropdown.CurrentOption == 0 then
+
+        if #options > 0 and (#ManualDropdown.CurrentOption == 0 or not ManualDropdown.CurrentOption[1]) then
             ManualDropdown:Set({ options[1] })
         end
     end
 
+    -- Initial refresh
     refreshManualDropdown()
+
+    -- Only update when stock actually changes
     if availableStock.ChildAdded then
         availableStock.ChildAdded:Connect(refreshManualDropdown)
     end
