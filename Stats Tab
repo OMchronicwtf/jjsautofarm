@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (Misc + AutoBuy + Manual)
+-- Shop Tab Module (AutoRoll + AutoBuy + Manual)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
@@ -40,23 +40,23 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     end
 
     -------------------
-    -- Misc Section (Now on top)
+    -- AutoRoll / Misc Section (Top)
     -------------------
-    ShopTab:CreateSection("Misc")
+    ShopTab:CreateSection("Random Fruit Spin")
 
     local autoRollEnabled = false
     local autoRollThread
     local inventoryCheckThread
-    local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
+    local bindableServer = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
 
-    local rollCooldown = 30 -- Default 30 minutes
+    local rollCooldown = 30 -- default 30 minutes
 
     local function RollFruit()
-        serverEvent:InvokeServer({ Arg = "MovesetSpin" })
+        bindableServer:InvokeServer({ Arg = "MovesetSpin" })
     end
 
     local function StoreFruit()
-        serverEvent:InvokeServer({ Arg = "StoreFruit" })
+        bindableServer:InvokeServer({ Arg = "StoreFruit" })
     end
 
     local function EquipAndStoreFruit()
@@ -73,7 +73,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     end
 
     ShopTab:CreateToggle({
-        Name = "AutoRollFruit",
+        Name = "Auto Random Spin",
         CurrentValue = false,
         Flag = "AutoRollFruitToggle",
         Callback = function(state)
@@ -84,7 +84,6 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                 task.wait(1)
                 EquipAndStoreFruit()
 
-                -- Roll loop
                 autoRollThread = task.spawn(function()
                     while autoRollEnabled do
                         for i = 1, rollCooldown * 60 do
@@ -99,7 +98,6 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                     end
                 end)
 
-                -- Inventory check every 5 seconds
                 inventoryCheckThread = task.spawn(function()
                     while autoRollEnabled do
                         EquipAndStoreFruit()
@@ -116,7 +114,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     ShopTab:CreateSlider({
-        Name = "AutoRoll Interval",
+        Name = "Auto-Spin Interval",
         Range = {10, 60},
         Increment = 1,
         Suffix = "min",
@@ -190,7 +188,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         CurrentOption = {},
         MultipleOptions = false,
         Flag = "ManualDropdown",
-        Callback = function() end, -- handled by button
+        Callback = function() end,
     })
 
     ShopTab:CreateButton({
