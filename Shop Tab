@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (AutoRoll + AutoBuy + Manual)
+-- Shop Tab Module (AutoBuy + Manual + AutoRoll at bottom)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
@@ -38,92 +38,6 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     local function parsePrice(priceStr)
         return tonumber(priceStr:gsub("[^%d]", "")) or 0
     end
-
-    -------------------
-    -- AutoRoll / Misc Section (Top)
-    -------------------
-    ShopTab:CreateSection("Random Moveset Spins")
-
-    local autoRollEnabled = false
-    local autoRollThread
-    local inventoryCheckThread
-    local bindableServer = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
-
-    local rollCooldown = 30 -- default 30 minutes
-
-    local function RollFruit()
-        bindableServer:InvokeServer({ Arg = "MovesetSpin" })
-    end
-
-    local function StoreFruit()
-        bindableServer:InvokeServer({ Arg = "StoreFruit" })
-    end
-
-    local function EquipAndStoreFruit()
-        local backpack = player:FindFirstChild("Backpack")
-        local character = player.Character
-        if not backpack or not character then return end
-
-        local fruit = backpack:FindFirstChild("Fruit")
-        if fruit then
-            character.Humanoid:EquipTool(fruit)
-            task.wait(0.5)
-            StoreFruit()
-        end
-    end
-
-    ShopTab:CreateToggle({
-        Name = "Auto Random Spin",
-        CurrentValue = false,
-        Flag = "AutoRollFruitToggle",
-        Callback = function(state)
-            autoRollEnabled = state
-
-            if state then
-                RollFruit()
-                task.wait(1)
-                EquipAndStoreFruit()
-
-                autoRollThread = task.spawn(function()
-                    while autoRollEnabled do
-                        for i = 1, rollCooldown * 60 do
-                            if not autoRollEnabled then break end
-                            task.wait(1)
-                        end
-                        if autoRollEnabled then
-                            RollFruit()
-                            task.wait(1)
-                            EquipAndStoreFruit()
-                        end
-                    end
-                end)
-
-                inventoryCheckThread = task.spawn(function()
-                    while autoRollEnabled do
-                        EquipAndStoreFruit()
-                        for i = 1, 5 do
-                            if not autoRollEnabled then break end
-                            task.wait(1)
-                        end
-                    end
-                end)
-            else
-                autoRollEnabled = false
-            end
-        end
-    })
-
-    ShopTab:CreateSlider({
-        Name = "Auto-Spin Interval",
-        Range = {10, 60},
-        Increment = 1,
-        Suffix = "min",
-        CurrentValue = 30,
-        Flag = "AutoRollInterval",
-        Callback = function(value)
-            rollCooldown = value
-        end
-    })
 
     -------------------
     -- AutoBuy System
@@ -300,6 +214,92 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
             end
         end
     end)
+
+    -------------------
+    -- AutoRoll / Misc Section (Now at bottom)
+    -------------------
+    ShopTab:CreateSection("Random Moveset Spins")
+
+    local autoRollEnabled = false
+    local autoRollThread
+    local inventoryCheckThread
+    local bindableServer = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
+
+    local rollCooldown = 30 -- default 30 minutes
+
+    local function RollFruit()
+        bindableServer:InvokeServer({ Arg = "MovesetSpin" })
+    end
+
+    local function StoreFruit()
+        bindableServer:InvokeServer({ Arg = "StoreFruit" })
+    end
+
+    local function EquipAndStoreFruit()
+        local backpack = player:FindFirstChild("Backpack")
+        local character = player.Character
+        if not backpack or not character then return end
+
+        local fruit = backpack:FindFirstChild("Fruit")
+        if fruit then
+            character.Humanoid:EquipTool(fruit)
+            task.wait(0.5)
+            StoreFruit()
+        end
+    end
+
+    ShopTab:CreateToggle({
+        Name = "Auto Random Spin",
+        CurrentValue = false,
+        Flag = "AutoRollFruitToggle",
+        Callback = function(state)
+            autoRollEnabled = state
+
+            if state then
+                RollFruit()
+                task.wait(1)
+                EquipAndStoreFruit()
+
+                autoRollThread = task.spawn(function()
+                    while autoRollEnabled do
+                        for i = 1, rollCooldown * 60 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
+                        end
+                        if autoRollEnabled then
+                            RollFruit()
+                            task.wait(1)
+                            EquipAndStoreFruit()
+                        end
+                    end
+                end)
+
+                inventoryCheckThread = task.spawn(function()
+                    while autoRollEnabled do
+                        EquipAndStoreFruit()
+                        for i = 1, 5 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
+                        end
+                    end
+                end)
+            else
+                autoRollEnabled = false
+            end
+        end
+    })
+
+    ShopTab:CreateSlider({
+        Name = "Auto-Spin Interval",
+        Range = {10, 60},
+        Increment = 1,
+        Suffix = "min",
+        CurrentValue = 30,
+        Flag = "AutoRollInterval",
+        Callback = function(value)
+            rollCooldown = value
+        end
+    })
 
     return ShopTab
 end
