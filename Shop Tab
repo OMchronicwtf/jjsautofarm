@@ -1,11 +1,9 @@
 -- =======================
--- Shop Tab Module (Optimized, Lag-Free)
+-- Shop Tab Module (Money/Gems + AutoBuy + Manual + AutoRoll at bottom)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
-    -- ====================
-    -- Setup Stock
-    -- ====================
+    -- Hardcoded stockTable
     local stockTable = {
         MV1 = { Name = "Explosive Bomb", Price = "$ 75,000" },
         MV2 = { Name = "Construction", Price = "$ 150,000" },
@@ -37,7 +35,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     local ShopTab = Window:CreateTab("Shop", "shopping-bag")
 
     -- ====================
-    -- Money/Gems Label
+    -- Money/Gems Label (Top, formatted with commas)
     -- ====================
     ShopTab:CreateSection("Money & Gems")
 
@@ -119,13 +117,13 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- Manual Purchase (Self-Buy)
+    -- Manual Purchase
     -------------------
     ShopTab:CreateSection("Self-Buy Moveset")
 
     local ManualDropdown = ShopTab:CreateDropdown({
         Name = "Choose Moveset (In Stock)",
-        Options = {},
+        Options = {}, -- only populate on stock update
         CurrentOption = {},
         MultipleOptions = false,
         Flag = "ManualDropdown",
@@ -173,8 +171,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- Manual Dropdown Refresh
-    -- Only update on stock changes
+    -- Refresh Manual Dropdown ONLY when stock updates
     -------------------
     local function refreshManualDropdown()
         local availableKeys = {}
@@ -202,19 +199,15 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         end
     end
 
-    -- Initial population once at load
+    -- Connect stock changes
+    availableStock.ChildAdded:Connect(refreshManualDropdown)
+    availableStock.ChildRemoved:Connect(refreshManualDropdown)
+
+    -- Initialize once at load
     refreshManualDropdown()
 
-    -- Update when stock changes
-    if availableStock.ChildAdded then
-        availableStock.ChildAdded:Connect(refreshManualDropdown)
-    end
-    if availableStock.ChildRemoved then
-        availableStock.ChildRemoved:Connect(refreshManualDropdown)
-    end
-
     -------------------
-    -- AutoBuy Loop (Every 30s)
+    -- AutoBuy Loop (every 5 seconds)
     -------------------
     task.spawn(function()
         while true do
@@ -242,12 +235,12 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                     end
                 end
             end
-            task.wait(30)
+            task.wait(5) -- check every 5 seconds
         end
     end)
 
     -------------------
-    -- AutoRoll / Misc Section (Bottom)
+    -- AutoRoll / Misc Section (At bottom)
     -------------------
     ShopTab:CreateSection("Random Moveset Spins")
 
@@ -332,6 +325,5 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         end
     })
 
-    -- Finally, return the tab
     return ShopTab
 end
