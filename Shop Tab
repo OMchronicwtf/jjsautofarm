@@ -1,9 +1,11 @@
 -- =======================
--- Shop Tab Module (Money/Gems + AutoBuy + Manual + AutoRoll at bottom, optimized)
+-- Shop Tab Module (Optimized, Lag-Free)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
-    -- Hardcoded stockTable
+    -- ====================
+    -- Setup Stock
+    -- ====================
     local stockTable = {
         MV1 = { Name = "Explosive Bomb", Price = "$ 75,000" },
         MV2 = { Name = "Construction", Price = "$ 150,000" },
@@ -34,9 +36,9 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
 
     local ShopTab = Window:CreateTab("Shop", "shopping-bag")
 
-    -------------------
-    -- Money/Gems Label (Top, formatted with commas)
-    -------------------
+    -- ====================
+    -- Money/Gems Label
+    -- ====================
     ShopTab:CreateSection("Money & Gems")
 
     local function formatNumber(num)
@@ -117,7 +119,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- Manual Purchase
+    -- Manual Purchase (Self-Buy)
     -------------------
     ShopTab:CreateSection("Self-Buy Moveset")
 
@@ -171,7 +173,8 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- Refresh Manual Dropdown (only update when stock changes)
+    -- Manual Dropdown Refresh
+    -- Only update on stock changes
     -------------------
     local function refreshManualDropdown()
         local availableKeys = {}
@@ -199,7 +202,10 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         end
     end
 
+    -- Initial population once at load
     refreshManualDropdown()
+
+    -- Update when stock changes
     if availableStock.ChildAdded then
         availableStock.ChildAdded:Connect(refreshManualDropdown)
     end
@@ -208,56 +214,63 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     end
 
     -------------------
-    -- AutoBuy Loop (every 30s)
+    -- AutoBuy Loop (Every 30s)
     -------------------
-    RunService.Heartbeat:Connect(function()
-        if AutoBuyEnabled and AutoBuyTarget then
-            local key = AutoBuyTarget:match("%((.-)%)")
-            local data = key and stockTable[key]
-            if not key or not data then return end
+    task.spawn(function()
+        while true do
+            if AutoBuyEnabled and AutoBuyTarget then
+                local key = AutoBuyTarget:match("%((.-)%)")
+                local data = key and stockTable[key]
+                if key and data then
+                    local found = availableStock:FindFirstChild(key)
+                    if found then
+                        local playerData = player:FindFirstChild("Data")
+                        local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
+                        local itemPrice = parsePrice(data.Price)
 
-            local found = availableStock:FindFirstChild(key)
-            if found then
-                local playerData = player:FindFirstChild("Data")
-                local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
-                local itemPrice = parsePrice(data.Price)
-
-                if playerCash >= itemPrice then
-                    if QuestEvent then
-                        QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
-                        if Rayfield then
-                            Rayfield:Notify({
-                                Title = "AutoBuy",
-                                Content = "Purchased: " .. data.Name,
-                                Duration = 5,
-                                Image = "shopping-bag"
-                            })
+                        if playerCash >= itemPrice and QuestEvent then
+                            QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                            if Rayfield then
+                                Rayfield:Notify({
+                                    Title = "AutoBuy",
+                                    Content = "Purchased: " .. data.Name,
+                                    Duration = 5,
+                                    Image = "shopping-bag"
+                                })
+                            end
                         end
-                        task.wait(30) -- throttle AutoBuy to once every 30s
                     end
                 end
             end
+            task.wait(30)
         end
     end)
 
     -------------------
-    -- AutoRoll / Misc Section (At bottom, inventory check every 5s)
+    -- AutoRoll / Misc Section (Bottom)
     -------------------
     ShopTab:CreateSection("Random Moveset Spins")
 
+    local autoRollEnabled = false
     local autoRollThread
     local inventoryCheckThread
+    local bindableServer = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
+
+    local rollCooldown = 30 -- default 30 minutes
 
     local function RollFruit()
         bindableServer:InvokeServer({ Arg = "MovesetSpin" })
     end
+
     local function StoreFruit()
         bindableServer:InvokeServer({ Arg = "StoreFruit" })
     end
+
     local function EquipAndStoreFruit()
         local backpack = player:FindFirstChild("Backpack")
         local character = player.Character
         if not backpack or not character then return end
+
         local fruit = backpack:FindFirstChild("Fruit")
         if fruit then
             character.Humanoid:EquipTool(fruit)
@@ -266,15 +279,13 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         end
     end
 
-    local autoRollEnabled = false
-    local rollCooldown = 30 -- default 30 minutes
-
     ShopTab:CreateToggle({
         Name = "Auto Random Spin",
         CurrentValue = false,
         Flag = "AutoRollFruitToggle",
         Callback = function(state)
             autoRollEnabled = state
+
             if state then
                 RollFruit()
                 task.wait(1)
@@ -297,7 +308,10 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                 inventoryCheckThread = task.spawn(function()
                     while autoRollEnabled do
                         EquipAndStoreFruit()
-                        task.wait(5) -- only check every 5s
+                        for i = 1, 5 do
+                            if not autoRollEnabled then break end
+                            task.wait(1)
+                        end
                     end
                 end)
             else
@@ -312,11 +326,3 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         Increment = 1,
         Suffix = "min",
         CurrentValue = 30,
-        Flag = "AutoRollInterval",
-        Callback = function(value)
-            rollCooldown = value
-        end
-    })
-
-    return ShopTab
-end
