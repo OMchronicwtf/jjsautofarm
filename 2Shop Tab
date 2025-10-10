@@ -130,6 +130,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         Callback = function() end,
     })
 
+    -- Refresh Stock Button (Above dropdown)
     ShopTab:CreateButton({
         Name = "Refresh Stock",
         Callback = function()
@@ -198,36 +199,39 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- AutoBuy Loop (every 5 seconds)
+    -- AutoBuy Loop (every 5s)
     -------------------
-    RunService.Heartbeat:Connect(function()
-        if AutoBuyEnabled and AutoBuyTarget then
-            local key = AutoBuyTarget:match("%((.-)%)")
-            local data = key and stockTable[key]
-            if not key or not data then return end
+    task.spawn(function()
+        while true do
+            task.wait(5)
+            if AutoBuyEnabled and AutoBuyTarget then
+                local key = AutoBuyTarget:match("%((.-)%)")
+                local data = key and stockTable[key]
+                if not key or not data then continue end
 
-            local found = availableStock:FindFirstChild(key)
-            if found then
-                local playerData = player:FindFirstChild("Data")
-                local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
-                local itemPrice = parsePrice(data.Price)
+                local found = availableStock:FindFirstChild(key)
+                if found then
+                    local playerData = player:FindFirstChild("Data")
+                    local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
+                    local itemPrice = parsePrice(data.Price)
 
-                if playerCash >= itemPrice then
-                    if QuestEvent then
-                        QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
-                        if Rayfield then
-                            Rayfield:Notify({
-                                Title = "AutoBuy",
-                                Content = "Purchased: " .. data.Name,
-                                Duration = 5,
-                                Image = "shopping-bag"
-                            })
+                    if playerCash >= itemPrice then
+                        if QuestEvent then
+                            QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                            if Rayfield then
+                                Rayfield:Notify({
+                                    Title = "AutoBuy",
+                                    Content = "Purchased: " .. data.Name,
+                                    Duration = 5,
+                                    Image = "shopping-bag"
+                                })
+                            end
                         end
                     end
                 end
             end
         end
-    end):Wait(5) -- throttle 5s between attempts
+    end)
 
     -------------------
     -- AutoRoll / Misc Section (Bottom)
@@ -238,7 +242,6 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     local autoRollThread
     local inventoryCheckThread
     local bindableServer = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
-
     local rollCooldown = 30 -- default 30 minutes
 
     local function RollFruit()
@@ -268,7 +271,6 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         Flag = "AutoRollFruitToggle",
         Callback = function(state)
             autoRollEnabled = state
-
             if state then
                 RollFruit()
                 task.wait(1)
