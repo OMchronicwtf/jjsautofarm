@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (Money/Gems + AutoBuy + Manual + AutoRoll at bottom + Refresh Stock above dropdown)
+-- Shop Tab Module (Money/Gems + AutoBuy + Self-Buy + AutoRoll)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
@@ -117,11 +117,19 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- Manual Purchase
+    -- Self-Buy (Manual)
     -------------------
     ShopTab:CreateSection("Self-Buy Moveset")
 
-    -- Refresh Stock button ABOVE the dropdown
+    local ManualDropdown = ShopTab:CreateDropdown({
+        Name = "Choose Moveset (In Stock)",
+        Options = {},
+        CurrentOption = {},
+        MultipleOptions = false,
+        Flag = "ManualDropdown",
+        Callback = function() end,
+    })
+
     ShopTab:CreateButton({
         Name = "Refresh Stock",
         Callback = function()
@@ -141,21 +149,12 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
             if Rayfield then
                 Rayfield:Notify({
                     Title = "Shop",
-                    Content = "Shop refreshed!",
+                    Content = "Stock refreshed!",
                     Duration = 3,
                     Image = "check"
                 })
             end
         end
-    })
-
-    local ManualDropdown = ShopTab:CreateDropdown({
-        Name = "Choose Moveset (In Stock)",
-        Options = {},
-        CurrentOption = {},
-        MultipleOptions = false,
-        Flag = "ManualDropdown",
-        Callback = function() end,
     })
 
     ShopTab:CreateButton({
@@ -199,40 +198,39 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- AutoBuy Loop (Every 30 seconds)
+    -- AutoBuy Loop (every 5 seconds)
     -------------------
-    task.spawn(function()
-        while true do
-            if AutoBuyEnabled and AutoBuyTarget then
-                local key = AutoBuyTarget:match("%((.-)%)")
-                local data = key and stockTable[key]
-                if key and data then
-                    local found = availableStock:FindFirstChild(key)
-                    if found then
-                        local playerData = player:FindFirstChild("Data")
-                        local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
-                        local itemPrice = parsePrice(data.Price)
+    RunService.Heartbeat:Connect(function()
+        if AutoBuyEnabled and AutoBuyTarget then
+            local key = AutoBuyTarget:match("%((.-)%)")
+            local data = key and stockTable[key]
+            if not key or not data then return end
 
-                        if playerCash >= itemPrice and QuestEvent then
-                            QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
-                            if Rayfield then
-                                Rayfield:Notify({
-                                    Title = "AutoBuy",
-                                    Content = "Purchased: " .. data.Name,
-                                    Duration = 5,
-                                    Image = "shopping-bag"
-                                })
-                            end
+            local found = availableStock:FindFirstChild(key)
+            if found then
+                local playerData = player:FindFirstChild("Data")
+                local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
+                local itemPrice = parsePrice(data.Price)
+
+                if playerCash >= itemPrice then
+                    if QuestEvent then
+                        QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                        if Rayfield then
+                            Rayfield:Notify({
+                                Title = "AutoBuy",
+                                Content = "Purchased: " .. data.Name,
+                                Duration = 5,
+                                Image = "shopping-bag"
+                            })
                         end
                     end
                 end
             end
-            task.wait(30)
         end
-    end)
+    end):Wait(5) -- throttle 5s between attempts
 
     -------------------
-    -- AutoRoll / Misc Section (At bottom)
+    -- AutoRoll / Misc Section (Bottom)
     -------------------
     ShopTab:CreateSection("Random Moveset Spins")
 
