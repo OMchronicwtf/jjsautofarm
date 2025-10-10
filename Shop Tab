@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (Optimized: Money/Gems + AutoBuy + Manual + AutoRoll at bottom)
+-- Shop Tab Module (Money/Gems + AutoBuy + Manual + AutoRoll at bottom, optimized)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
@@ -34,9 +34,9 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
 
     local ShopTab = Window:CreateTab("Shop", "shopping-bag")
 
-    -- ====================
+    -------------------
     -- Money/Gems Label (Top, formatted with commas)
-    -- ====================
+    -------------------
     ShopTab:CreateSection("Money & Gems")
 
     local function formatNumber(num)
@@ -171,7 +171,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- Refresh Manual Dropdown (Optimized)
+    -- Refresh Manual Dropdown (only update when stock changes)
     -------------------
     local function refreshManualDropdown()
         local availableKeys = {}
@@ -194,16 +194,12 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         end
 
         ManualDropdown:Refresh(options)
-
-        if #options > 0 and (#ManualDropdown.CurrentOption == 0 or not ManualDropdown.CurrentOption[1]) then
+        if #options > 0 and #ManualDropdown.CurrentOption == 0 then
             ManualDropdown:Set({ options[1] })
         end
     end
 
-    -- Initial refresh
     refreshManualDropdown()
-
-    -- Only update when stock actually changes
     if availableStock.ChildAdded then
         availableStock.ChildAdded:Connect(refreshManualDropdown)
     end
@@ -212,7 +208,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     end
 
     -------------------
-    -- AutoBuy Loop
+    -- AutoBuy Loop (every 30s)
     -------------------
     RunService.Heartbeat:Connect(function()
         if AutoBuyEnabled and AutoBuyTarget then
@@ -237,7 +233,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                                 Image = "shopping-bag"
                             })
                         end
-                        task.wait(0.5) -- throttle
+                        task.wait(30) -- throttle AutoBuy to once every 30s
                     end
                 end
             end
@@ -245,30 +241,23 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     end)
 
     -------------------
-    -- AutoRoll / Misc Section (At bottom)
+    -- AutoRoll / Misc Section (At bottom, inventory check every 5s)
     -------------------
     ShopTab:CreateSection("Random Moveset Spins")
 
-    local autoRollEnabled = false
     local autoRollThread
     local inventoryCheckThread
-    local bindableServer = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
-
-    local rollCooldown = 30 -- default 30 minutes
 
     local function RollFruit()
         bindableServer:InvokeServer({ Arg = "MovesetSpin" })
     end
-
     local function StoreFruit()
         bindableServer:InvokeServer({ Arg = "StoreFruit" })
     end
-
     local function EquipAndStoreFruit()
         local backpack = player:FindFirstChild("Backpack")
         local character = player.Character
         if not backpack or not character then return end
-
         local fruit = backpack:FindFirstChild("Fruit")
         if fruit then
             character.Humanoid:EquipTool(fruit)
@@ -277,13 +266,15 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         end
     end
 
+    local autoRollEnabled = false
+    local rollCooldown = 30 -- default 30 minutes
+
     ShopTab:CreateToggle({
         Name = "Auto Random Spin",
         CurrentValue = false,
         Flag = "AutoRollFruitToggle",
         Callback = function(state)
             autoRollEnabled = state
-
             if state then
                 RollFruit()
                 task.wait(1)
@@ -306,10 +297,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                 inventoryCheckThread = task.spawn(function()
                     while autoRollEnabled do
                         EquipAndStoreFruit()
-                        for i = 1, 5 do
-                            if not autoRollEnabled then break end
-                            task.wait(1)
-                        end
+                        task.wait(5) -- only check every 5s
                     end
                 end)
             else
