@@ -1,5 +1,5 @@
 -- =======================
--- Shop Tab Module (Money/Gems + AutoBuy + Manual + AutoRoll at bottom)
+-- Shop Tab Module (Money/Gems + AutoBuy + Manual + AutoRoll at bottom + Manual Refresh Button)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
@@ -121,19 +121,9 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     -------------------
     ShopTab:CreateSection("Self-Buy Moveset")
 
-    -- Manual dropdown
-    local ManualDropdown = ShopTab:CreateDropdown({
-        Name = "Choose Moveset (In Stock)",
-        Options = {}, -- populate manually
-        CurrentOption = {},
-        MultipleOptions = false,
-        Flag = "ManualDropdown",
-        Callback = function() end,
-    })
-
-    -- Manual refresh button
+    -- Refresh Shop button (above dropdown)
     ShopTab:CreateButton({
-        Name = "Refresh Shop",
+        Name = "Refresh Stock",
         Callback = function()
             local options = {}
             for _, child in ipairs(availableStock:GetChildren()) do
@@ -157,6 +147,16 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                 })
             end
         end,
+    })
+
+    -- Manual dropdown (below button)
+    local ManualDropdown = ShopTab:CreateDropdown({
+        Name = "Choose Moveset (In Stock)",
+        Options = {}, -- populate manually
+        CurrentOption = {},
+        MultipleOptions = false,
+        Flag = "ManualDropdown",
+        Callback = function() end,
     })
 
     ShopTab:CreateButton({
@@ -200,35 +200,41 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- AutoBuy Loop (every 5 seconds)
+    -- AutoBuy Loop (every 30 seconds)
     -------------------
-    task.spawn(function()
-        while true do
-            if AutoBuyEnabled and AutoBuyTarget then
-                local key = AutoBuyTarget:match("%((.-)%)")
-                local data = key and stockTable[key]
-                if key and data then
-                    local found = availableStock:FindFirstChild(key)
-                    if found then
-                        local playerData = player:FindFirstChild("Data")
-                        local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
-                        local itemPrice = parsePrice(data.Price)
+    RunService.Heartbeat:Connect(function(step)
+        if not AutoBuyEnabled or not AutoBuyTarget then return end
 
-                        if playerCash >= itemPrice and QuestEvent then
-                            QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
-                            if Rayfield then
-                                Rayfield:Notify({
-                                    Title = "AutoBuy",
-                                    Content = "Purchased: " .. data.Name,
-                                    Duration = 5,
-                                    Image = "shopping-bag"
-                                })
-                            end
-                        end
+        if not ShopTab._lastAutoBuy then
+            ShopTab._lastAutoBuy = 0
+        end
+        ShopTab._lastAutoBuy += step
+
+        if ShopTab._lastAutoBuy >= 30 then
+            ShopTab._lastAutoBuy = 0
+
+            local key = AutoBuyTarget:match("%((.-)%)")
+            local data = key and stockTable[key]
+            if not key or not data then return end
+
+            local found = availableStock:FindFirstChild(key)
+            if found then
+                local playerData = player:FindFirstChild("Data")
+                local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
+                local itemPrice = parsePrice(data.Price)
+
+                if playerCash >= itemPrice and QuestEvent then
+                    QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                    if Rayfield then
+                        Rayfield:Notify({
+                            Title = "AutoBuy",
+                            Content = "Purchased: " .. data.Name,
+                            Duration = 5,
+                            Image = "shopping-bag"
+                        })
                     end
                 end
             end
-            task.wait(5) -- every 5 seconds
         end
     end)
 
