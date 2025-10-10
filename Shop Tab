@@ -1,55 +1,78 @@
 -- =======================
--- Shop & Moveset Module
+-- Shop Tab Module (Money/Gems + AutoBuy + Self-Buy + AutoRoll)
 -- =======================
-return function(Rayfield, MainTab, player)
 
-    local ShopTab = MainTab
+return function(Window, player, QuestEvent, quests, RunService, serverEvent, Rayfield)
+    -- Hardcoded stockTable
+    local stockTable = {
+        MV1 = { Name = "Explosive Bomb", Price = "$ 75,000" },
+        MV2 = { Name = "Construction", Price = "$ 150,000" },
+        MV3 = { Name = "Rubber", Price = "$ 200,000" },
+        MV9 = { Name = "Vital Arts", Price = "$ 650,000" },
+        MV8 = { Name = "Turbo Soul", Price = "$ 850,000" },
+        MV14 = { Name = "Sakura Blossom", Price = "$ 950,000" },
+        MV5 = { Name = "Light", Price = "$ 1,250,000" },
+        MV6 = { Name = "Star Guardian", Price = "$ 1,500,000" },
+        MV7 = { Name = "Ice", Price = "$ 1,750,000" },
+        MV15 = { Name = "Flame Breathing", Price = "$ 1,875,000" },
+        MV10 = { Name = "Infinity", Price = "$ 2,150,000" },
+        MV12 = { Name = "Monarch", Price = "$ 2,500,000" },
+        MV11 = { Name = "Vessel", Price = "$ 2,900,000" },
+        MV13 = { Name = "Spectral Reaper", Price = "$ 3,250,000" },
+    }
 
-    -- =======================
-    -- Money & Gems Display
-    -- =======================
-    local function formatNumber(n)
-        local formatted = tostring(n)
-        while true do  
-            formatted, k = formatted:gsub("^(-?%d+)(%d%d%d)", '%1,%2')
-            if k == 0 then break end
+    local orderedKeys = {
+        "MV1", "MV2", "MV3", "MV9", "MV8", "MV14", "MV5", "MV6", "MV7", "MV15",
+        "MV10", "MV12", "MV11", "MV13"
+    }
+
+    local availableStock = game:GetService("ReplicatedStorage"):FindFirstChild("AvailableStock")
+    if not availableStock then
+        availableStock = { GetChildren = function() return {} end }
+        warn("AvailableStock not found - using empty mock")
+    end
+
+    local ShopTab = Window:CreateTab("Shop", "shopping-bag")
+
+    -- ====================
+    -- Money/Gems Label (Top)
+    -- ====================
+    ShopTab:CreateSection("Money & Gems")
+
+    local function formatNumber(num)
+        local formatted = tostring(num):reverse():gsub("(%d%d%d)", "%1,")
+        formatted = formatted:reverse()
+        if formatted:sub(1,1) == "," then
+            formatted = formatted:sub(2)
         end
         return formatted
     end
 
-    local moneyLabel = ShopTab:CreateLabel("Money: 0 | Gems: 0")
+    local moneyLabel = ShopTab:CreateLabel("Cash: $0 | Gems: 0")
 
-    task.spawn(function()
-        while task.wait(2) do
-            local gems = player.Data.Gems.Value
-            local cash = player.Data.Cash.Value
-            moneyLabel:Set("Money: " .. formatNumber(cash) .. " | Gems: " .. formatNumber(gems))
+    RunService.Heartbeat:Connect(function()
+        local data = player:FindFirstChild("Data")
+        if data then
+            local cash = data:FindFirstChild("Cash") and data.Cash.Value or 0
+            local gems = data:FindFirstChild("Gems") and data.Gems.Value or 0
+            moneyLabel:Set(string.format("Cash: $%s | Gems: %s", formatNumber(cash), formatNumber(gems)))
         end
     end)
 
-    -- =======================
-    -- AutoBuy Section
-    -- =======================
-    ShopTab:CreateSection("AutoBuy")
+    -- Helper to parse "$ 1,250,000" → 1250000
+    local function parsePrice(priceStr)
+        return tonumber(priceStr:gsub("[^%d]", "")) or 0
+    end
+
+    -------------------
+    -- AutoBuy System
+    -------------------
+    ShopTab:CreateSection("AutoBuy Moveset")
 
     local AutoBuyTarget = nil
     local AutoBuyEnabled = false
-    local serverEvent = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
 
-    local function fetchStock()
-        local stockTable = serverEvent:InvokeServer({Arg = "Stock"})
-        return stockTable or {}
-    end
-
-    local stockTable = fetchStock()
-    local orderedKeys = {}
-    for key in pairs(stockTable) do
-        table.insert(orderedKeys, key)
-    end
-    table.sort(orderedKeys)
-
-    -- Add "None" as the first option
-    local allOptions = {"None"}
+    local allOptions = {"None"} -- add "None" as first option
     for _, key in ipairs(orderedKeys) do
         local data = stockTable[key]
         if data then
@@ -80,68 +103,60 @@ return function(Rayfield, MainTab, player)
         Name = "Enable AutoBuy",
         CurrentValue = false,
         Flag = "AutoBuyToggle",
-        Callback = function(state)
-            AutoBuyEnabled = state
-            if state then
-                task.spawn(function()
-                    while AutoBuyEnabled do
-                        if AutoBuyTarget then
-                            local stock = fetchStock()
-                            for key, data in pairs(stock) do
-                                local formatted = data.Name .. " (" .. key .. ") - " .. data.Price
-                                if formatted == AutoBuyTarget then
-                                    serverEvent:InvokeServer({Arg = "Buy", Item = key})
-                                    Rayfield:Notify({
-                                        Title = "AutoBuy",
-                                        Content = "Purchased " .. AutoBuyTarget,
-                                        Duration = 4,
-                                        Image = "check"
-                                    })
-                                    break
-                                end
-                            end
-                        end
-                        for _ = 1, 30 do
-                            if not AutoBuyEnabled then break end
-                            task.wait(1)
-                        end
-                    end
-                end)
+        Callback = function(Value)
+            AutoBuyEnabled = Value
+            if Rayfield then
+                Rayfield:Notify({
+                    Title = "AutoBuy",
+                    Content = Value and "Enabled" or "Disabled",
+                    Duration = 4,
+                    Image = Value and "play" or "pause"
+                })
             end
         end,
     })
 
-    -- =======================
-    -- Manual Buy Section
-    -- =======================
-    ShopTab:CreateSection("Manual Buy")
+    -------------------
+    -- Self-Buy (Manual)
+    -------------------
+    ShopTab:CreateSection("Self-Buy Moveset")
 
+    local ManualDropdown
+    -- Refresh Stock Button (Above dropdown)
     ShopTab:CreateButton({
         Name = "Refresh Stock",
         Callback = function()
-            local stockTable = fetchStock()
-            local orderedKeys = {}
-            for key in pairs(stockTable) do
-                table.insert(orderedKeys, key)
-            end
-            table.sort(orderedKeys)
-
-            local refreshOptions = {"None"}
-            for _, key in ipairs(orderedKeys) do
+            if not ManualDropdown then return end
+            local options = {"None"} -- always include None
+            for _, child in ipairs(availableStock:GetChildren()) do
+                local key = child.Name
                 local data = stockTable[key]
                 if data then
-                    table.insert(refreshOptions, data.Name .. " (" .. key .. ") - " .. data.Price)
+                    table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
                 end
             end
-
-            ManualDropdown:Refresh(refreshOptions)
-            ManualDropdown:Set({"None"}) -- default to None
-        end,
+            -- keep "None" at the top, sort everything else
+            table.sort(options, function(a, b)
+                if a == "None" then return true end
+                if b == "None" then return false end
+                return a < b
+            end)
+            ManualDropdown:Refresh(options)
+            ManualDropdown:Set({"None"}) -- always reset to None after refresh
+            if Rayfield then
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Stock refreshed!",
+                    Duration = 3,
+                    Image = "check"
+                })
+            end
+        end
     })
 
     ManualDropdown = ShopTab:CreateDropdown({
         Name = "Choose Moveset (In Stock)",
-        Options = {"None"}, -- starts with None
+        Options = {"None"}, -- start with None
         CurrentOption = {"None"}, -- default to None
         MultipleOptions = false,
         Flag = "ManualDropdown",
@@ -152,43 +167,94 @@ return function(Rayfield, MainTab, player)
         Name = "Buy Selected",
         Callback = function()
             local selected = ManualDropdown.CurrentOption[1]
-            if selected and selected ~= "None" then
-                local stockTable = fetchStock()
-                for key, data in pairs(stockTable) do
-                    local formatted = data.Name .. " (" .. key .. ") - " .. data.Price
-                    if formatted == selected then
-                        serverEvent:InvokeServer({Arg = "Buy", Item = key})
-                        Rayfield:Notify({
-                            Title = "Manual Buy",
-                            Content = "Purchased " .. selected,
-                            Duration = 4,
-                            Image = "check"
-                        })
-                        break
-                    end
+            if not selected or selected == "None" then return end
+
+            local key = selected:match("%((.-)%)")
+            local data = key and stockTable[key]
+            if not key or not data then return end
+
+            local playerData = player:FindFirstChild("Data")
+            local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
+            local itemPrice = parsePrice(data.Price)
+
+            if playerCash < itemPrice then
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "Not enough cash to buy " .. data.Name,
+                        Duration = 4,
+                        Image = "x-circle"
+                    })
+                end
+                return
+            end
+
+            if QuestEvent then
+                QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                if Rayfield then
+                    Rayfield:Notify({
+                        Title = "Shop",
+                        Content = "Purchased: " .. data.Name,
+                        Duration = 5,
+                        Image = "shopping-bag"
+                    })
                 end
             end
         end,
     })
 
-    -- =======================
-    -- Misc Section (AutoRollFruit)
-    -- =======================
-    ShopTab:CreateSection("Misc")
+    -------------------
+    -- AutoBuy Loop (every 30s)
+    -------------------
+    task.spawn(function()
+        while true do
+            task.wait(30)
+            if AutoBuyEnabled and AutoBuyTarget then
+                local key = AutoBuyTarget:match("%((.-)%)")
+                local data = key and stockTable[key]
+                if not key or not data then continue end
+
+                local found = availableStock:FindFirstChild(key)
+                if found then
+                    local playerData = player:FindFirstChild("Data")
+                    local playerCash = playerData and playerData:FindFirstChild("Cash") and playerData.Cash.Value or 0
+                    local itemPrice = parsePrice(data.Price)
+
+                    if playerCash >= itemPrice then
+                        if QuestEvent then
+                            QuestEvent:FireServer({ Item = key, Type = "StockBuy" })
+                            if Rayfield then
+                                Rayfield:Notify({
+                                    Title = "AutoBuy",
+                                    Content = "Purchased: " .. data.Name,
+                                    Duration = 5,
+                                    Image = "shopping-bag"
+                                })
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    -------------------
+    -- AutoRoll / Misc Section (Bottom)
+    -------------------
+    ShopTab:CreateSection("Random Moveset Spins")
 
     local autoRollEnabled = false
     local autoRollThread
     local inventoryCheckThread
-
-    -- Default 30 minutes
-    local rollCooldown = 30
+    local bindableServer = game:GetService("ReplicatedStorage").Resource.Remotes.Bindable.Server
+    local rollCooldown = 30 -- default 30 minutes
 
     local function RollFruit()
-        serverEvent:InvokeServer({ Arg = "MovesetSpin" })
+        bindableServer:InvokeServer({ Arg = "MovesetSpin" })
     end
 
     local function StoreFruit()
-        serverEvent:InvokeServer({ Arg = "StoreFruit" })
+        bindableServer:InvokeServer({ Arg = "StoreFruit" })
     end
 
     local function EquipAndStoreFruit()
@@ -205,12 +271,11 @@ return function(Rayfield, MainTab, player)
     end
 
     ShopTab:CreateToggle({
-        Name = "AutoRollFruit",
+        Name = "Auto Random Spin",
         CurrentValue = false,
         Flag = "AutoRollFruitToggle",
         Callback = function(state)
             autoRollEnabled = state
-
             if state then
                 RollFruit()
                 task.wait(1)
@@ -246,7 +311,7 @@ return function(Rayfield, MainTab, player)
     })
 
     ShopTab:CreateSlider({
-        Name = "AutoRoll Interval",
+        Name = "Auto-Spin Interval",
         Range = {10, 60},
         Increment = 1,
         Suffix = "min",
