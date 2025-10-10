@@ -121,19 +121,12 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     -------------------
     ShopTab:CreateSection("Self-Buy Moveset")
 
-    local ManualDropdown = ShopTab:CreateDropdown({
-        Name = "Choose Moveset (In Stock)",
-        Options = {},
-        CurrentOption = {},
-        MultipleOptions = false,
-        Flag = "ManualDropdown",
-        Callback = function() end,
-    })
-
+    local ManualDropdown
     -- Refresh Stock Button (Above dropdown)
     ShopTab:CreateButton({
         Name = "Refresh Stock",
         Callback = function()
+            if not ManualDropdown then return end
             local options = {}
             for _, child in ipairs(availableStock:GetChildren()) do
                 local key = child.Name
@@ -156,6 +149,15 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                 })
             end
         end
+    })
+
+    ManualDropdown = ShopTab:CreateDropdown({
+        Name = "Choose Moveset (In Stock)",
+        Options = {},
+        CurrentOption = {},
+        MultipleOptions = false,
+        Flag = "ManualDropdown",
+        Callback = function() end,
     })
 
     ShopTab:CreateButton({
@@ -199,11 +201,11 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- AutoBuy Loop (every 5s)
+    -- AutoBuy Loop (every 30s)
     -------------------
     task.spawn(function()
         while true do
-            task.wait(5)
+            task.wait(30)
             if AutoBuyEnabled and AutoBuyTarget then
                 local key = AutoBuyTarget:match("%((.-)%)")
                 local data = key and stockTable[key]
