@@ -121,13 +121,42 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     -------------------
     ShopTab:CreateSection("Self-Buy Moveset")
 
+    -- Manual dropdown
     local ManualDropdown = ShopTab:CreateDropdown({
         Name = "Choose Moveset (In Stock)",
-        Options = {}, -- only populate on stock update
+        Options = {}, -- populate manually
         CurrentOption = {},
         MultipleOptions = false,
         Flag = "ManualDropdown",
         Callback = function() end,
+    })
+
+    -- Manual refresh button
+    ShopTab:CreateButton({
+        Name = "Refresh Shop",
+        Callback = function()
+            local options = {}
+            for _, child in ipairs(availableStock:GetChildren()) do
+                local key = child.Name
+                local data = stockTable[key]
+                if data then
+                    table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
+                end
+            end
+            table.sort(options)
+            ManualDropdown:Refresh(options)
+            if #options > 0 then
+                ManualDropdown:Set({ options[1] })
+            end
+            if Rayfield then
+                Rayfield:Notify({
+                    Title = "Shop",
+                    Content = "Shop refreshed!",
+                    Duration = 3,
+                    Image = "check"
+                })
+            end
+        end,
     })
 
     ShopTab:CreateButton({
@@ -171,42 +200,6 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
     })
 
     -------------------
-    -- Refresh Manual Dropdown ONLY when stock updates
-    -------------------
-    local function refreshManualDropdown()
-        local availableKeys = {}
-        for _, child in ipairs(availableStock:GetChildren()) do
-            table.insert(availableKeys, child.Name)
-        end
-
-        table.sort(availableKeys, function(a, b)
-            local ia = table.find(orderedKeys, a)
-            local ib = table.find(orderedKeys, b)
-            return (ia or math.huge) < (ib or math.huge)
-        end)
-
-        local options = {}
-        for _, key in ipairs(availableKeys) do
-            local data = stockTable[key]
-            if data then
-                table.insert(options, data.Name .. " (" .. key .. ") - " .. data.Price)
-            end
-        end
-
-        ManualDropdown:Refresh(options)
-        if #options > 0 and #ManualDropdown.CurrentOption == 0 then
-            ManualDropdown:Set({ options[1] })
-        end
-    end
-
-    -- Connect stock changes
-    availableStock.ChildAdded:Connect(refreshManualDropdown)
-    availableStock.ChildRemoved:Connect(refreshManualDropdown)
-
-    -- Initialize once at load
-    refreshManualDropdown()
-
-    -------------------
     -- AutoBuy Loop (every 5 seconds)
     -------------------
     task.spawn(function()
@@ -235,7 +228,7 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
                     end
                 end
             end
-            task.wait(5) -- check every 5 seconds
+            task.wait(5) -- every 5 seconds
         end
     end)
 
