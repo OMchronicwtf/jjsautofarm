@@ -16,6 +16,7 @@ local StockTable = {
     MV12 = { Name = "Monarch", Price = "$ 2,500,000" },
     MV11 = { Name = "Vessel", Price = "$ 2,900,000" },
     MV13 = { Name = "Spectral Reaper", Price = "$ 3,250,000" },
+    MV16 = { Name = "Mooon Breathing", Price = "$ 4,000,000" },
 }
 
 return StockTable
