@@ -1,6 +1,6 @@
 -- =======================
 -- Farming Module (Normal + MultiQuest + SuperKill)
--- version: 1.52
+-- version: 1.53 (fixed dynamic enemy targeting)
 -- =======================
 
 return function(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
@@ -26,7 +26,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
     -- Separate connections
     local autoFarmHeartbeat, autoFarmZoneLock
     local multiFarmHeartbeat, multiFarmZoneLock
-    local weaponCheckLoop -- <--- added for equip checking
+    local weaponCheckLoop
 
     -- Configurable sliders
     local behindDistance = 8
@@ -64,13 +64,17 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
         return bestZone
     end
 
+    -- ✅ Fixed dynamic targeting: always pick the highest matching enemy
     local function GetEnemyNameForQuest(minLevel)
+        local bestMatch
         for _, entry in ipairs(enemyTable) do
             if minLevel >= entry.Min and minLevel <= entry.Max then
-                return entry.EnemyName
+                if not bestMatch or entry.Min > bestMatch.Min then
+                    bestMatch = entry
+                end
             end
         end
-        return nil -- No match, fallback or skip
+        return bestMatch and bestMatch.EnemyName or nil
     end
 
     local function TeleportToZone(level)
@@ -124,7 +128,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
         if not zone then return end
 
         local targetEnemyName = GetEnemyNameForQuest(questData.MinLevel)
-        if not targetEnemyName then return end -- No enemy name found, skip
+        if not targetEnemyName then return end
 
         local zoneCFrame = zone.CFrame
         TeleportToZone(questData.MinLevel)
@@ -225,7 +229,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
     -- =======================
     FarmTab:CreateSection("Farming")
 
-    -- Weapon Dropdown (now with "None")
     local weaponOptions = {"None", "Weapon", "Style", "Moveset"}
     FarmTab:CreateDropdown({
         Name = "Equip Weapon",
@@ -246,7 +249,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
         Callback = function(state)
             autoFarmEnabled = state
 
-            -- start/stop weapon check loop
             if (autoFarmEnabled or multiQuestEnabled) and not weaponCheckLoop then
                 weaponCheckLoop = task.spawn(function()
                     while autoFarmEnabled or multiQuestEnabled do
@@ -272,12 +274,9 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                 if selectedWeapon ~= "None" then
                     local char = player.Character
                     if char and char:FindFirstChild("Humanoid") then
-                        local currentTool = char:FindFirstChildOfClass("Tool")
-                        if not currentTool or currentTool.Name ~= selectedWeapon then
-                            local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                            if tool then
-                                char.Humanoid:EquipTool(tool)
-                            end
+                        local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                        if tool then
+                            char.Humanoid:EquipTool(tool)
                         end
                     end
                 end
@@ -312,7 +311,7 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
         end
     })
 
-    -- MultiFarm
+    -- MultiQuest
     local questOptions = {}
     for _, q in ipairs(quests) do
         table.insert(questOptions, q.DisplayName)
@@ -325,7 +324,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
         Callback = function(state)
             multiQuestEnabled = state
 
-            -- start/stop weapon check loop
             if (autoFarmEnabled or multiQuestEnabled) and not weaponCheckLoop then
                 weaponCheckLoop = task.spawn(function()
                     while autoFarmEnabled or multiQuestEnabled do
@@ -351,12 +349,9 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
                 if selectedWeapon ~= "None" then
                     local char = player.Character
                     if char and char:FindFirstChild("Humanoid") then
-                        local currentTool = char:FindFirstChildOfClass("Tool")
-                        if not currentTool or currentTool.Name ~= selectedWeapon then
-                            local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                            if tool then
-                                char.Humanoid:EquipTool(tool)
-                            end
+                        local tool = player.Backpack:FindFirstChild(selectedWeapon)
+                        if tool then
+                            char.Humanoid:EquipTool(tool)
                         end
                     end
                 end
@@ -396,7 +391,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
         end
     })
 
-    -- MultiQuest Dropdown (underneath toggle again)
     FarmTab:CreateDropdown({
         Name = "Select Quests to Farm",
         Options = questOptions,
@@ -408,7 +402,6 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
         end
     })
 
-    -- SuperKill Toggle
     FarmTab:CreateToggle({
         Name = "Instakill (After 12% Damage)",
         CurrentValue = false,
@@ -459,77 +452,11 @@ return function(Window, player, QuestEvent, quests, teleportZones, RunService, e
 
     FarmTab:CreateSection("")
 
-    -- =======================
-    -- Respawn Handling
-    -- =======================
-    local function ResumeFarming()
-        if selectedWeapon ~= "None" then
-            local char = player.Character
-            if char and char:FindFirstChild("Humanoid") then
-                local currentTool = char:FindFirstChildOfClass("Tool")
-                if not currentTool or currentTool.Name ~= selectedWeapon then
-                    local tool = player.Backpack:FindFirstChild(selectedWeapon)
-                    if tool then
-                        char.Humanoid:EquipTool(tool)
-                    end
-                end
-            end
-        end
-
-        if autoFarmEnabled then
-            task.spawn(function()
-                QuestEvent:FireServer({ Type = "RemoveQuest" })
-                task.wait(0.2)
-                while autoFarmEnabled do
-                    local level = player:WaitForChild("Data").Level.Value
-                    local bestQuest
-                    for _, q in ipairs(quests) do
-                        if level >= q.MinLevel then
-                            bestQuest = q
-                        end
-                    end
-                    if bestQuest then
-                        FarmQuest(bestQuest, "auto")
-                    else
-                        currentTarget = "No Suitable Quest"
-                        currentHealth = 0
-                        task.wait(1)
-                    end
-                end
-            end)
-        end
-        if multiQuestEnabled then
-            task.spawn(function()
-                QuestEvent:FireServer({ Type = "RemoveQuest" })
-                task.wait(0.1)
-                while multiQuestEnabled do
-                    if #selectedQuests == 0 then
-                        currentTarget = "No Quests Selected"
-                        currentHealth = 0
-                        task.wait(0.5)
-                    else
-                        for _, questName in ipairs(selectedQuests) do
-                            if not multiQuestEnabled then break end
-                            local questData
-                            for _, q in ipairs(quests) do
-                                if q.DisplayName == questName then
-                                    questData = q
-                                    break
-                                end
-                            end
-                            if questData then
-                                FarmQuest(questData, "multi")
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-
-    player.CharacterAdded:Connect(function(char)
+    player.CharacterAdded:Connect(function()
         task.wait(1)
-        ResumeFarming()
+        if autoFarmEnabled or multiQuestEnabled then
+            QuestEvent:FireServer({ Type = "RemoveQuest" })
+        end
     end)
 
     return FarmTab
