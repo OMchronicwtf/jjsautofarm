@@ -1,0 +1,246 @@
+-- =======================
+-- Farming Module (Normal + MultiQuest + SuperKill)
+-- version: 1.52 (enhanced GetEnemyNameForQuest)
+-- =======================
+
+return function(Window, player, QuestEvent, quests, teleportZones, RunService, enemyTable)
+    -- Create Farm Tab
+    local FarmTab = Window:CreateTab("Farming", "swords")
+
+    -- =======================
+    -- Target Info Section
+    -- =======================
+    FarmTab:CreateSection("Target Info")
+    local questInfoLabel = FarmTab:CreateLabel("Targeting: Idle | Health: N/A")
+
+    -- State for different farms
+    local autoFarmEnabled = false
+    local multiQuestEnabled = false
+    local superKillEnabled = false
+    local selectedQuests = {}
+    local selectedWeapon = "None"
+
+    local currentTarget = "Idle"
+    local currentHealth = 0
+
+    -- Separate connections
+    local autoFarmHeartbeat, autoFarmZoneLock
+    local multiFarmHeartbeat, multiFarmZoneLock
+    local weaponCheckLoop -- <--- added for equip checking
+
+    -- Configurable sliders
+    local behindDistance = 8
+    local aboveHeight = 1
+
+    local function formatHealth(health)
+        if health <= 0 then return "N/A" end
+        local str = string.format("%.2f", health)
+        local integerPart, decimalPart = str:match("([^.]+)%.?(.*)")
+        if not integerPart then integerPart = "0" end
+        if decimalPart == "" then decimalPart = "00" else decimalPart = decimalPart .. string.rep("0", 2 - #decimalPart) end
+        local formattedInt = integerPart:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+        return formattedInt .. "." .. decimalPart
+    end
+
+    RunService.Heartbeat:Connect(function()
+        questInfoLabel:Set(string.format("Targeting: %s | Health: %s", currentTarget, formatHealth(currentHealth)))
+    end)
+
+    -- ======= Helpers =======
+    local function IsInQuest()
+        local questFrame = player.PlayerGui:FindFirstChild("Quest") and player.PlayerGui.Quest:FindFirstChild("Mission")
+        return questFrame and questFrame.Visible or false
+    end
+
+    local function GetZoneForLevel(level)
+        local bestZone
+        for _, zone in ipairs(teleportZones) do
+            if level >= zone.Min and level <= zone.Max then
+                if not bestZone or zone.Min > bestZone.Min then
+                    bestZone = zone
+                end
+            end
+        end
+        return bestZone
+    end
+
+    -- ✅ Updated logic: always return the HIGHEST matching enemy
+    local function GetEnemyNameForQuest(minLevel)
+        local bestMatch = nil
+        for _, entry in ipairs(enemyTable) do
+            if minLevel >= entry.Min and minLevel <= entry.Max then
+                if not bestMatch or entry.Min > bestMatch.Min then
+                    bestMatch = entry
+                end
+            end
+        end
+        return bestMatch and bestMatch.EnemyName or nil
+    end
+
+    local function TeleportToZone(level)
+        local zone = GetZoneForLevel(level)
+        if zone then
+            local hrp = player.Character:WaitForChild("HumanoidRootPart")
+            hrp.CFrame = zone.CFrame
+            return zone.CFrame
+        end
+    end
+
+    local function AttachSuperKill(enemy)
+        if enemy and enemy:FindFirstChild("Humanoid") and superKillEnabled then
+            local humanoid = enemy.Humanoid
+            local initialHealth = humanoid.Health
+            local connection
+            connection = humanoid.HealthChanged:Connect(function(health)
+                if health <= initialHealth * 0.88 then
+                    humanoid.Health = 0
+                    connection:Disconnect()
+                end
+            end)
+        end
+    end
+
+    local function GetSafeBehindPosition(enemyHRP)
+        local rootPos = enemyHRP.Position
+        local lookVec = enemyHRP.CFrame.LookVector
+        return rootPos - lookVec * behindDistance + Vector3.new(0, aboveHeight, 0)
+    end
+
+    local function LockAtPosition(pos, farmType)
+        local hrp = player.Character:WaitForChild("HumanoidRootPart")
+        if farmType == "auto" then
+            if autoFarmZoneLock then autoFarmZoneLock:Disconnect() end
+            autoFarmZoneLock = RunService.Heartbeat:Connect(function()
+                hrp.CFrame = pos
+            end)
+        elseif farmType == "multi" then
+            if multiFarmZoneLock then multiFarmZoneLock:Disconnect() end
+            multiFarmZoneLock = RunService.Heartbeat:Connect(function()
+                hrp.CFrame = pos
+            end)
+        end
+    end
+
+    local function FarmQuest(questData, farmType)
+        if not questData then return end
+
+        local zone = GetZoneForLevel(questData.MinLevel)
+        if not zone then return end
+
+        local targetEnemyName = GetEnemyNameForQuest(questData.MinLevel)
+        if not targetEnemyName then return end -- No enemy name found, skip
+
+        local zoneCFrame = zone.CFrame
+        TeleportToZone(questData.MinLevel)
+        LockAtPosition(zoneCFrame, farmType)
+        task.wait(0.3)
+
+        if not IsInQuest() then
+            QuestEvent:FireServer({ Quest = questData.QuestName, Type = "RepeatQuest" })
+        end
+
+        repeat task.wait(0.1) until IsInQuest()
+
+        local hrp = player.Character:WaitForChild("HumanoidRootPart")
+
+        repeat
+            local enemy = nil
+            for _, mob in pairs(workspace.Mobs:GetChildren()) do
+                if mob.Name == targetEnemyName and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") then
+                    enemy = mob
+                    break
+                end
+            end
+
+            if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
+                local enemyHRP = enemy.HumanoidRootPart
+
+                if farmType == "auto" then
+                    if autoFarmZoneLock then autoFarmZoneLock:Disconnect(); autoFarmZoneLock = nil end
+                    if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect() end
+                    autoFarmHeartbeat = RunService.Heartbeat:Connect(function()
+                        if not autoFarmEnabled then
+                            if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
+                            currentTarget = "Idle"
+                            currentHealth = 0
+                            return
+                        end
+                        if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
+                            local targetPos = GetSafeBehindPosition(enemyHRP)
+                            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, aboveHeight, 0)), 0.35)
+                            currentTarget = enemy.Name
+                            currentHealth = enemy.Humanoid.Health
+                        else
+                            if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
+                            LockAtPosition(zoneCFrame, "auto")
+                            currentTarget = string.format("Searching for %s", targetEnemyName)
+                            currentHealth = 0
+                        end
+                    end)
+                elseif farmType == "multi" then
+                    if multiFarmZoneLock then multiFarmZoneLock:Disconnect(); multiFarmZoneLock = nil end
+                    if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect() end
+                    multiFarmHeartbeat = RunService.Heartbeat:Connect(function()
+                        if not multiQuestEnabled then
+                            if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
+                            currentTarget = "Idle"
+                            currentHealth = 0
+                            return
+                        end
+                        if enemy and enemy.Parent and enemy:FindFirstChild("HumanoidRootPart") then
+                            local targetPos = GetSafeBehindPosition(enemyHRP)
+                            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(targetPos, enemyHRP.Position + Vector3.new(0, aboveHeight, 0)), 0.35)
+                            currentTarget = enemy.Name
+                            currentHealth = enemy.Humanoid.Health
+                        else
+                            if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
+                            LockAtPosition(zoneCFrame, "multi")
+                            currentTarget = string.format("Searching for %s", targetEnemyName)
+                            currentHealth = 0
+                        end
+                    end)
+                end
+
+                game:GetService("ReplicatedStorage").Resource.Remotes.M1:FireServer({
+                    type = "M1", InAir = false, UpTilt = false
+                })
+
+                AttachSuperKill(enemy)
+            else
+                LockAtPosition(zoneCFrame, farmType)
+                currentTarget = string.format("Searching for %s", targetEnemyName)
+                currentHealth = 0
+            end
+
+            task.wait(0.1)
+        until not IsInQuest()
+
+        if farmType == "auto" then
+            if autoFarmHeartbeat then autoFarmHeartbeat:Disconnect(); autoFarmHeartbeat = nil end
+            if autoFarmZoneLock then autoFarmZoneLock:Disconnect(); autoFarmZoneLock = nil end
+        elseif farmType == "multi" then
+            if multiFarmHeartbeat then multiFarmHeartbeat:Disconnect(); multiFarmHeartbeat = nil end
+            if multiFarmZoneLock then multiFarmZoneLock:Disconnect(); multiFarmZoneLock = nil end
+        end
+    end
+
+    -- =======================
+    -- Farming Section
+    -- =======================
+    FarmTab:CreateSection("Farming")
+
+    local weaponOptions = {"None", "Weapon", "Style", "Moveset"}
+    FarmTab:CreateDropdown({
+        Name = "Equip Weapon",
+        Options = weaponOptions,
+        CurrentOption = {selectedWeapon},
+        MultipleOptions = false,
+        Flag = "WeaponDropdown",
+        Callback = function(option)
+            selectedWeapon = option[1]
+        end
+    })
+
+    -- (rest of the module unchanged)
+    -- ...
+end
