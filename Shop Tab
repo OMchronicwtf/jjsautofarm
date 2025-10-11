@@ -19,11 +19,12 @@ return function(Window, player, QuestEvent, quests, RunService, serverEvent, Ray
         MV12 = { Name = "Monarch", Price = "$ 2,500,000" },
         MV11 = { Name = "Vessel", Price = "$ 2,900,000" },
         MV13 = { Name = "Spectral Reaper", Price = "$ 3,250,000" },
+        MV16 = { Name = "Mooon Breathing", Price = "$ 4,000,000" },
     }
 
     local orderedKeys = {
         "MV1", "MV2", "MV3", "MV9", "MV8", "MV14", "MV5", "MV6", "MV7", "MV15",
-        "MV10", "MV12", "MV11", "MV13"
+        "MV10", "MV12", "MV11", "MV13", "MV16"
     }
 
     local availableStock = game:GetService("ReplicatedStorage"):FindFirstChild("AvailableStock")
